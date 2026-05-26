@@ -4,7 +4,8 @@
 
 import SVGPathUtils from '../utils/index';
 
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+import Select, { type SingleValue, type StylesConfig } from 'react-select';
 import { create } from 'zustand';
 
 import edges from '../data/edge.json';
@@ -131,15 +132,194 @@ for (const edge of edges) {
 export const usePath = create((set) => {
   return {
     path: '',
+    route: null,
+    selectedFrom: stations[0]?.id || '',
+    setSelectedFrom: (stationId: string) => set(() => ({ selectedFrom: stationId })),
+    setRoute: (newPath: string, route: RouteSummary) =>
+      set(() => ({ path: newPath, route })),
     setPath: (newPath: string) => set(() => ({ path: newPath })),
     setInverse: (newPath: string) => set(() => ({ path: newPath })),
   };
 });
 
+export interface RouteSummary {
+  from: string;
+  to: string;
+  fromName: string;
+  toName: string;
+  stops: string[];
+  stationDetails: RouteStationDetail[];
+  interchanges: RouteInterchange[];
+  distance: number;
+  fare: number;
+  estimatedMinutes: number;
+}
 
-export function SearchBox() {
-  const { register, handleSubmit } = useForm();
-  const setPath = usePath((state: any) => state.setPath);
+export interface RouteStationDetail {
+  id: string;
+  name: string;
+  lineColors: string[];
+}
+
+export interface RouteInterchange {
+  id: string;
+  name: string;
+  fromColor: string;
+  toColor: string;
+}
+
+const stationName = (id: string) =>
+  stations.find((station) => station.id === id)?.text || id;
+
+const estimateFare = (stops: number) => {
+  if (stops <= 2) return 10;
+  if (stops <= 5) return 20;
+  if (stops <= 12) return 30;
+  if (stops <= 21) return 40;
+  if (stops <= 32) return 50;
+  return 60;
+};
+
+interface StationOption {
+  label: string;
+  value: string;
+  lineColors: string[];
+}
+
+const getRouteEdge = (from: string, to: string) =>
+  edges.find((edge) => edge.from === from && edge.to === to) ||
+  edges.find((edge) => edge.from === to && edge.to === from);
+
+const uniqueColors = (colors: string[]) => [...new Set(colors.filter(Boolean))];
+
+const getRouteStationDetails = (routePath: string[]): RouteStationDetail[] =>
+  routePath.map((stationId, index) => {
+    const previousEdge = index > 0 ? getRouteEdge(routePath[index - 1], stationId) : undefined;
+    const nextEdge = index < routePath.length - 1 ? getRouteEdge(stationId, routePath[index + 1]) : undefined;
+
+    return {
+      id: stationId,
+      name: stationName(stationId),
+      lineColors: uniqueColors([previousEdge?.stroke || '', nextEdge?.stroke || '']),
+    };
+  });
+
+const getRouteInterchanges = (routePath: string[]): RouteInterchange[] =>
+  routePath.slice(1, -1).flatMap((stationId, index) => {
+    const routeIndex = index + 1;
+    const previousEdge = getRouteEdge(routePath[routeIndex - 1], stationId);
+    const nextEdge = getRouteEdge(stationId, routePath[routeIndex + 1]);
+
+    if (!previousEdge || !nextEdge || previousEdge.stroke === nextEdge.stroke) return [];
+
+    return [{
+      id: stationId,
+      name: stationName(stationId),
+      fromColor: previousEdge.stroke,
+      toColor: nextEdge.stroke,
+    }];
+  });
+
+const getStationLineColors = (stationId: string) =>
+  uniqueColors(edges
+    .filter((edge) => edge.from === stationId || edge.to === stationId)
+    .map((edge) => edge.stroke));
+
+const stationOptions: StationOption[] = stations.map((station) => ({
+  label: station.text,
+  value: station.id,
+  lineColors: getStationLineColors(station.id),
+}));
+
+const selectStyles: StylesConfig<StationOption, false> = {
+  control: (base) => ({
+    ...base,
+    minHeight: 58,
+    border: 0,
+    borderRadius: 999,
+    backgroundColor: 'white',
+    boxShadow: 'none',
+    paddingLeft: 14,
+    paddingRight: 6,
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: 0,
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    display: 'none',
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: 16,
+    overflow: 'hidden',
+    zIndex: 30,
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isFocused ? '#f5f5f5' : 'white',
+    color: '#111',
+  }),
+};
+
+function ToggleIcon() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="15" cy="15" r="15" fill="white" />
+      <path d="M10.022 12.3254L11.9038 9.23479L13.8412 12.3254" stroke="black" strokeLinecap="round" />
+      <path d="M11.9343 19.7286L11.9391 9.69627" stroke="black" strokeLinecap="round" />
+      <path d="M15.7609 16.6381L17.8596 19.7286L19.9221 16.7408" stroke="black" strokeLinecap="round" />
+      <path d="M17.8901 9.23479L17.8949 19.2671" stroke="black" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LineBadge({ colors }: { colors: string[] }) {
+  const color = colors[0] || '#d1d5db';
+
+  return (
+    <span className="flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold" style={{ backgroundColor: color }}>
+      L
+    </span>
+  );
+}
+
+function StationOptionLabel({ option }: { option: StationOption }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="truncate text-lg font-medium">{option.label}</span>
+      <LineBadge colors={option.lineColors} />
+    </div>
+  );
+}
+
+
+export function SearchBox({
+  onFromChange,
+  onRoutePlan,
+}: {
+  onFromChange?: () => void;
+  onRoutePlan?: () => void;
+}) {
+  const { control, getValues, handleSubmit, setValue } = useForm({
+    defaultValues: {
+      from: stationOptions[0]?.value || '',
+      to: stationOptions[1]?.value || stationOptions[0]?.value || '',
+    },
+  });
+  const setRoute = usePath((state: any) => state.setRoute);
+  const setSelectedFrom = usePath((state: any) => state.setSelectedFrom);
+
+  const swapStations = () => {
+    const fromValue = getValues('from');
+    const toValue = getValues('to');
+
+    setValue('from', toValue);
+    setValue('to', fromValue);
+    setSelectedFrom(toValue);
+    onFromChange?.();
+  };
 
   return (
     <form
@@ -174,43 +354,71 @@ export function SearchBox() {
 
         const newpt = newPath.reverse().join('');
         const inversepath = utils.inversePath(newpt);
-        setPath(inversepath);
+        setRoute(inversepath, {
+          from: e.from,
+          to: e.to,
+          fromName: stationName(e.from),
+          toName: stationName(e.to),
+          stops: shortedPath.path.map(stationName),
+          stationDetails: getRouteStationDetails(shortedPath.path),
+          interchanges: getRouteInterchanges(shortedPath.path),
+          distance: shortedPath.distance,
+          fare: estimateFare(shortedPath.distance),
+          estimatedMinutes: Math.max(2, shortedPath.distance * 2),
+        });
+        onRoutePlan?.();
 
         console.log(shortedPath.path, newPath, newpt);
       })}
-      className='absolute top-2 z-20 flex w-full flex-row justify-center gap-3 bg-neutral-100 bg-transparent'
+      className='grid gap-4'
     >
-      <div className='flex flex-row items-center gap-3 '>
-        <label
-          className=' rounded-full bg-neutral-900 px-4 py-2 text-lg text-white'
-          htmlFor='from'
+      <div className='grid grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)] items-center gap-3'>
+        <Controller
+          control={control}
+          name="from"
+          render={({ field }) => (
+            <Select
+              instanceId="from-station"
+              options={stationOptions}
+              value={stationOptions.find((option) => option.value === field.value)}
+              onChange={(option: SingleValue<StationOption>) => {
+                const nextValue = option?.value || '';
+                field.onChange(nextValue);
+                setSelectedFrom(nextValue);
+                onFromChange?.();
+              }}
+              formatOptionLabel={(option) => <StationOptionLabel option={option} />}
+              styles={selectStyles}
+              isSearchable
+            />
+          )}
+        />
+        <button
+          type="button"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm transition hover:scale-105"
+          onClick={swapStations}
+          title="Swap stations"
         >
-          From
-        </label>
-        <select {...register('from')} className='rounded-full border-none'>
-          {stations.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.text}
-            </option>
-          ))}
-        </select>
-        <label
-          className=' rounded-full bg-neutral-900 px-4 py-2 text-lg text-white'
-          htmlFor='from'
-        >
-          To:
-        </label>
-
-        <select {...register('to')} className='rounded-full border-none'>
-          {stations.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.text}
-            </option>
-          ))}
-        </select>
+          <ToggleIcon />
+        </button>
+        <Controller
+          control={control}
+          name="to"
+          render={({ field }) => (
+            <Select
+              instanceId="to-station"
+              options={stationOptions}
+              value={stationOptions.find((option) => option.value === field.value)}
+              onChange={(option: SingleValue<StationOption>) => field.onChange(option?.value || '')}
+              formatOptionLabel={(option) => <StationOptionLabel option={option} />}
+              styles={selectStyles}
+              isSearchable
+            />
+          )}
+        />
       </div>
-      <button className='rounded-full bg-neutral-900 px-4 py-2 text-white'>
-        Search
+      <button className='h-12 rounded-full bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800'>
+        Plan journey
       </button>
     </form>
   );

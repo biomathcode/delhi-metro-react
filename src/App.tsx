@@ -5,9 +5,7 @@ import MetroMapStage from './components/Stage'
 function App() {
 
   return (
-    <div style={{
-      maxWidth: '1000px'
-    }}>
+    <div >
       <MetroMapStage />
     </div>
   )

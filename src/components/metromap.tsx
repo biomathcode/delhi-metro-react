@@ -1,26 +1,43 @@
-/* eslint-disable no-console */
-
-import { a } from '@react-spring/web';
-import { localPoint } from '@visx/event';
-import type { ProvidedZoom } from '@visx/zoom/lib/types';
 import React, { forwardRef } from 'react';
 
+
+export interface MapTransform {
+    scaleX: number;
+    scaleY: number;
+    translateX: number;
+    translateY: number;
+}
+
+export interface MapControls {
+    transform: MapTransform;
+    isDragging: boolean;
+    dragStart: (event: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => void;
+    dragMove: (event: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => void;
+    dragEnd: () => void;
+    zoomAt: (scale: number, event: React.MouseEvent<SVGSVGElement>) => void;
+    wheelZoom: (event: React.WheelEvent<SVGSVGElement>) => void;
+}
 
 interface MapProps {
     style: React.CSSProperties;
     ref?: React.RefObject<SVGSVGElement>;
-    zoomFunction: ProvidedZoom<SVGSVGElement>; // Adjust the type accordingly
+    zoomFunction: MapControls;
     train: React.ReactNode;
 }
+
+const transformToString = ({ scaleX, scaleY, translateX, translateY }: MapTransform) =>
+    `matrix(${scaleX} 0 0 ${scaleY} ${translateX} ${translateY})`;
+
 const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
     ({ style, zoomFunction, train }: MapProps, ref) => (
-        <a.svg
+        <svg
             xmlns='http://www.w3.org/2000/svg'
             // style={{
             //   width: '100%',
             //   height: '100%',
             // }}
-            viewBox='0 0 1440 817'
+            viewBox='0 0 1500 1450'
+            preserveAspectRatio='xMidYMid meet'
             ref={ref}
             style={style}
             onTouchStart={zoomFunction.dragStart}
@@ -29,12 +46,11 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
             onMouseDown={zoomFunction.dragStart}
             onMouseMove={zoomFunction.dragMove}
             onMouseUp={zoomFunction.dragEnd}
-            onDoubleClick={(event) => {
-                const point = localPoint(event) || { x: 0, y: 0 };
-                zoomFunction.scale({ scaleX: 1.1, scaleY: 1.1, point });
-            }}
+            onMouseLeave={zoomFunction.dragEnd}
+            onWheel={zoomFunction.wheelZoom}
+            onDoubleClick={(event) => zoomFunction.zoomAt(1.18, event)}
         >
-            <g transform={zoomFunction.toString()}>
+            <g transform={transformToString(zoomFunction.transform)}>
                 <g
                     className='river'
                     style={{
@@ -7459,7 +7475,7 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
                 </g>
                 {train}
             </g>
-        </a.svg>
+        </svg>
     )
 );
 export default SvgComponent;

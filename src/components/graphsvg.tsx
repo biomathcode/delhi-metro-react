@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 'use client';
 import {
   DiscIcon,
@@ -8,320 +5,422 @@ import {
   ResetIcon,
   UpdateIcon,
 } from '@radix-ui/react-icons';
-import { a, useSpring } from '@react-spring/web';
-import { Zoom } from '@visx/zoom';
-import { useEffect, useState } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
 import * as React from 'react';
-import { useWindowSize } from 'react-use';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import Map from './metromap';
+import edges from '../data/edge.json';
+import Map, { type MapControls, type MapTransform } from './metromap';
 
-// -----------------------------------------
+gsap.registerPlugin(useGSAP);
 
-const extractFirstAndLastPoints = (path: string, transform: any) => {
-  const coordinates = [...path.matchAll(/[-+]?\d*\.?\d+/g)].map(Number);
+const VIEWBOX_WIDTH = 1500;
+const VIEWBOX_HEIGHT = 1450;
+const ROUTE_CAMERA_SCALE = 3.15;
+const WHEEL_ZOOM_IN_SCALE = 1.65;
+const WHEEL_ZOOM_OUT_SCALE = 0.65;
+const INITIAL_MAP_SCALE = 4.5;
 
-  const first = { x: coordinates[0], y: coordinates[1] };
-  const last = {
-    x: coordinates[coordinates.length - 2],
-    y: coordinates[coordinates.length - 1],
-  };
+const fitTransform: MapTransform = {
+  scaleX: 1,
+  scaleY: 1,
+  translateX: 0,
+  translateY: 0,
+};
 
+const coordinatePattern = /[-+]?\d*\.?\d+/g;
+
+const extractEdgePoints = (path: string) => {
+  const coordinates = [...path.matchAll(coordinatePattern)].map(Number);
   return {
-    first: applyInitialTransform(first, transform),
-    last: applyInitialTransform(last, transform),
+    first: { x: coordinates[0], y: coordinates[1] },
+    last: {
+      x: coordinates[coordinates.length - 2],
+      y: coordinates[coordinates.length - 1],
+    },
   };
 };
 
-const applyInitialTransform = (
-  point: { x: number; y: number },
-  transform: any
+const pointKey = ({ x, y }: { x: number; y: number }) => `${x.toFixed(3)},${y.toFixed(3)}`;
+
+const resolveStationCoordinates = () => {
+  const incidentPoints: Record<string, Array<{ x: number; y: number }>> = {};
+  const edgePoints = edges.map((edge) => {
+    const points = extractEdgePoints(edge.path);
+    incidentPoints[edge.from] = [...(incidentPoints[edge.from] || []), points.first, points.last];
+    incidentPoints[edge.to] = [...(incidentPoints[edge.to] || []), points.first, points.last];
+
+    return { ...edge, ...points };
+  });
+
+  const coordinates: Record<string, { x: number; y: number }> = {};
+
+  for (const [stationId, points] of Object.entries(incidentPoints)) {
+    const counts = points.reduce<Record<string, { count: number; point: { x: number; y: number } }>>((acc, point) => {
+      const key = pointKey(point);
+      acc[key] = { count: (acc[key]?.count || 0) + 1, point };
+      return acc;
+    }, {});
+
+    const sharedPoint = Object.values(counts).sort((a, b) => b.count - a.count)[0];
+    if (sharedPoint && sharedPoint.count > 1) {
+      coordinates[stationId] = sharedPoint.point;
+    }
+  }
+
+  for (const edge of edgePoints) {
+    const fromCoordinate = coordinates[edge.from];
+    const toCoordinate = coordinates[edge.to];
+
+    if (!fromCoordinate && toCoordinate) {
+      coordinates[edge.from] = pointKey(edge.first) === pointKey(toCoordinate) ? edge.last : edge.first;
+    }
+
+    if (!toCoordinate && fromCoordinate) {
+      coordinates[edge.to] = pointKey(edge.first) === pointKey(fromCoordinate) ? edge.last : edge.first;
+    }
+  }
+
+  return coordinates;
+};
+
+const stationCoordinates = resolveStationCoordinates();
+
+const createFocusTransform = (point: { x: number; y: number }, scale = INITIAL_MAP_SCALE): MapTransform => ({
+  scaleX: scale,
+  scaleY: scale,
+  translateX: VIEWBOX_WIDTH / 2 - point.x * scale,
+  translateY: VIEWBOX_HEIGHT / 2 - point.y * scale,
+});
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const getEventPoint = (
+  event: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>
 ) => {
+  const source = 'touches' in event ? event.touches[0] || event.changedTouches[0] : event;
+  return { x: source.clientX, y: source.clientY };
+};
+
+const toSvgPoint = (
+  event: React.MouseEvent<SVGSVGElement> | React.WheelEvent<SVGSVGElement>,
+  svg: SVGSVGElement
+) => {
+  const rect = svg.getBoundingClientRect();
   return {
-    x: point.x * transform.scaleX + transform.translateX,
-    y: point.y * transform.scaleY + transform.translateY,
+    x: ((event.clientX - rect.left) / rect.width) * VIEWBOX_WIDTH,
+    y: ((event.clientY - rect.top) / rect.height) * VIEWBOX_HEIGHT,
   };
 };
 
-
-
+const makePathElement = (path: string) => {
+  const element = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  element.setAttribute('d', path);
+  return element;
+};
 
 function SvgComponent({
   setPlay,
   play,
   path,
-
+  selectedStationId,
 }: {
   setPlay: React.Dispatch<React.SetStateAction<boolean>>;
   play: boolean;
-  path: any
-
+  path: string;
+  selectedStationId: string;
 }) {
-  const [pathLength, setPathLength] = useState(0);
-
-  const [points, setPoints] = useState({
-    first: { x: 0, y: 0 },
-    last: { x: 0, y: 0 },
-  });
-
-
-  const initialTransform = {
-    scaleX: 1,
-    scaleY: 1,
+  const [transform, setTransform] = useState<MapTransform>(fitTransform);
+  const [isDragging, setIsDragging] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const trainRef = useRef<SVGGElement | null>(null);
+  const routePathRef = useRef<SVGPathElement | null>(null);
+  const pathMeasureRef = useRef<SVGPathElement | null>(null);
+  const pathLengthRef = useRef(0);
+  const dragRef = useRef({
+    x: 0,
+    y: 0,
     translateX: 0,
     translateY: 0,
-    skewX: 0,
-    skewY: 0,
-  };
+  });
+  const tweenRef = useRef<gsap.core.Tween | null>(null);
+  const playRef = useRef(play);
 
-  // For camera-follow getPointAtLength
-  const tempPathRef = React.useRef<SVGPathElement | null>(null);
+  useEffect(() => {
+    playRef.current = play;
+  }, [play]);
 
-  React.useLayoutEffect(() => {
-    if (!path) return;
+  const setCameraForProgress = React.useCallback((progress: number) => {
+    const measure = pathMeasureRef.current;
+    const train = trainRef.current;
+    const pathLength = pathLengthRef.current;
+    if (!measure || !train || !pathLength) return;
 
-    const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    const tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    tempPath.setAttribute('d', path);
-    tempSvg.appendChild(tempPath);
-    document.body.appendChild(tempSvg);
+    const distance = pathLength * progress;
+    const point = measure.getPointAtLength(distance);
+    const nextPoint = measure.getPointAtLength(clamp(distance + 4, 0, pathLength));
+    const angle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x) * (180 / Math.PI);
+    const targetScale = ROUTE_CAMERA_SCALE;
 
-    const length = tempPath.getTotalLength();
-    const pts = extractFirstAndLastPoints(path, initialTransform);
+    train.setAttribute('transform', `translate(${point.x} ${point.y}) rotate(${angle})`);
+    setTransform({
+      scaleX: targetScale,
+      scaleY: targetScale,
+      translateX: VIEWBOX_WIDTH / 2 - point.x * targetScale,
+      translateY: VIEWBOX_HEIGHT / 2 - point.y * targetScale,
+    });
+  }, []);
 
-    tempSvg.remove();
+  useLayoutEffect(() => {
+    tweenRef.current?.kill();
+    tweenRef.current = null;
+    pathMeasureRef.current = null;
+    pathLengthRef.current = 0;
 
-    setPathLength(length);
-    setPoints(pts);
+    if (!path) {
+      return;
+    }
+
+    const measure = makePathElement(path);
+    pathMeasureRef.current = measure;
+    const length = measure.getTotalLength();
+    pathLengthRef.current = length;
+
+    const firstPoint = measure.getPointAtLength(0);
+    trainRef.current?.setAttribute('transform', `translate(${firstPoint.x} ${firstPoint.y})`);
+    requestAnimationFrame(() => {
+      setTransform({
+        scaleX: ROUTE_CAMERA_SCALE,
+        scaleY: ROUTE_CAMERA_SCALE,
+        translateX: VIEWBOX_WIDTH / 2 - firstPoint.x * ROUTE_CAMERA_SCALE,
+        translateY: VIEWBOX_HEIGHT / 2 - firstPoint.y * ROUTE_CAMERA_SCALE,
+      });
+    });
   }, [path]);
 
-  const duration = pathLength * 10;
+  useGSAP(() => {
+    const focusPoint = stationCoordinates[selectedStationId];
+    if (!focusPoint || play) return;
 
-  const { width, height } = useWindowSize();
+    const proxy = { ...transform };
+    const focusedTransform = createFocusTransform(focusPoint);
+    const tween = gsap.to(proxy, {
+      ...focusedTransform,
+      duration: 1,
+      ease: 'power3.out',
+      onUpdate: () => {
+        setTransform({
+          scaleX: proxy.scaleX,
+          scaleY: proxy.scaleY,
+          translateX: proxy.translateX,
+          translateY: proxy.translateY,
+        });
+      },
+    });
 
+    return () => tween.kill();
+  }, { dependencies: [selectedStationId, play], revertOnUpdate: true });
 
-  // -----------------------------------------
-  // 🔥 Spring with camera follow
-  // -----------------------------------------
-  const { offsetDistance, scale } = useSpring({
-    from: { offsetDistance: '0%', scale: 1 },
-    to: { offsetDistance: '100%', scale: 1 },
-    pause: !play,
-    reset: false,
+  useGSAP(() => {
+    tweenRef.current?.kill();
+    tweenRef.current = null;
+    const pathLength = pathLengthRef.current;
+    if (!path || !pathLength) return;
 
-    immediate: false,
-    loop: false,
+    const proxy = { progress: 0 };
+    tweenRef.current = gsap.to(proxy, {
+      progress: 1,
+      duration: clamp(pathLength / 95, 3.5, 18),
+      ease: 'power2.inOut',
+      paused: true,
+      onUpdate: () => setCameraForProgress(proxy.progress),
+      onComplete: () => setPlay(false),
+    });
 
-    config: {
-      duration,
-      easing: (x) => -(Math.cos(Math.PI * x) - 1) / 2,
+    if (playRef.current) tweenRef.current.play(0);
+
+    return () => {
+      tweenRef.current?.kill();
+      tweenRef.current = null;
+    };
+  }, { dependencies: [path, setCameraForProgress, setPlay], revertOnUpdate: true });
+
+  useEffect(() => {
+    if (!tweenRef.current) return;
+    if (play) tweenRef.current.play();
+    else tweenRef.current.pause();
+  }, [play]);
+
+  const mapControls = useMemo<MapControls>(() => ({
+    transform,
+    isDragging,
+    dragStart: (event) => {
+      const point = getEventPoint(event);
+      dragRef.current = {
+        x: point.x,
+        y: point.y,
+        translateX: transform.translateX,
+        translateY: transform.translateY,
+      };
+      setIsDragging(true);
     },
+    dragMove: (event) => {
+      if (!isDragging) return;
+      const point = getEventPoint(event);
+      const rect = svgRef.current?.getBoundingClientRect();
+      const scaleX = rect ? VIEWBOX_WIDTH / rect.width : 1;
+      const scaleY = rect ? VIEWBOX_HEIGHT / rect.height : 1;
 
-    // 🚆 CINEMATIC CAMERA FOLLOW HERE
-    onChange: ({ value }) => {
-      const val = value.offsetDistance;
-      if (!val) return;
-
-      const percent = parseFloat(val) / 100;
-      if (!tempPathRef.current) return;
-
-      const pt = tempPathRef.current.getPointAtLength(pathLength * percent);
-      if (!pt) return;
-
-      // ---- cinematic interpolation start → end ----
-      const camX = points.first.x + (points.last.x - points.first.x) * percent;
-      const camY = points.first.y + (points.last.y - points.first.y) * percent;
-
-      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-      // Move camera a bit ahead of the train for better composition
-      const smoothCamX = lerp(camX, pt.x, 0.75);
-      const smoothCamY = lerp(camY, pt.y, 0.75);
-
-      const targetScale = lerp(1.5, 1.5, percent); // zoom-out slightly as we move
-
-      const tx = -smoothCamX + width / 2;
-      const ty = -smoothCamY + height / 2;
-
-      // if (percent === 0) {
-      //   const clamped = clampCamera(tx, ty, targetScale, width, height);
-      //   tx = clamped.x;
-      //   ty = clamped.y;
-      // }
-
-      zoomRef.current?.setTransformMatrix({
-        ...initialTransform,
-        translateX: tx,
-        translateY: ty,
-        scaleX: targetScale,
-        scaleY: targetScale,
+      setTransform((current) => ({
+        ...current,
+        translateX: dragRef.current.translateX + (point.x - dragRef.current.x) * scaleX,
+        translateY: dragRef.current.translateY + (point.y - dragRef.current.y) * scaleY,
+      }));
+    },
+    dragEnd: () => setIsDragging(false),
+    zoomAt: (scale, event) => {
+      if (!svgRef.current) return;
+      const point = toSvgPoint(event, svgRef.current);
+      setTransform((current) => {
+        const nextScale = clamp(current.scaleX * scale, 0.45, 3.5);
+        const factor = nextScale / current.scaleX;
+        return {
+          scaleX: nextScale,
+          scaleY: nextScale,
+          translateX: point.x - (point.x - current.translateX) * factor,
+          translateY: point.y - (point.y - current.translateY) * factor,
+        };
       });
     },
+    wheelZoom: (event) => {
+      event.preventDefault();
+      if (!svgRef.current) return;
 
-    onRest(result) {
-      if (result.finished) {
-        setPlay(false);
-      }
+      const point = toSvgPoint(event, svgRef.current);
+      const wheelScale = event.deltaY < 0 ? WHEEL_ZOOM_IN_SCALE : WHEEL_ZOOM_OUT_SCALE;
+
+      setTransform((current) => {
+        const nextScale = clamp(current.scaleX * wheelScale, 0.45, 4.5);
+        const factor = nextScale / current.scaleX;
+
+        return {
+          scaleX: nextScale,
+          scaleY: nextScale,
+          translateX: point.x - (point.x - current.translateX) * factor,
+          translateY: point.y - (point.y - current.translateY) * factor,
+        };
+      });
     },
-  });
+  }), [isDragging, transform]);
 
-  // On path change → restart animation
-  useEffect(() => {
-    if (!path) return;
+  const zoomBy = (scale: number) => {
+    setTransform((current) => {
+      const nextScale = clamp(current.scaleX * scale, 0.45, 3.5);
+      return {
+        scaleX: nextScale,
+        scaleY: nextScale,
+        translateX: VIEWBOX_WIDTH / 2 - (VIEWBOX_WIDTH / 2 - current.translateX) * (nextScale / current.scaleX),
+        translateY: VIEWBOX_HEIGHT / 2 - (VIEWBOX_HEIGHT / 2 - current.translateY) * (nextScale / current.scaleY),
+      };
+    });
+  };
 
-  }, [path]);
+  const focusSelectedStation = () => {
+    const focusPoint = stationCoordinates[selectedStationId];
+    setTransform(focusPoint ? createFocusTransform(focusPoint) : fitTransform);
+  };
 
-  // visx zoom reference
-  const zoomRef = React.useRef<any>(null);
-
-
+  const selectedStationPoint = stationCoordinates[selectedStationId];
 
   return (
-    <div className="absolute h-full w-full">
-      <Zoom<SVGSVGElement>
-        width={width}
-        height={height}
-
-        initialTransformMatrix={initialTransform}
-      >
-        {(zoom) => {
-          zoomRef.current = zoom;
-
-          return (
-            <div className="relative">
-              <Map
-                style={{
-                  cursor: zoom.isDragging ? 'grabbing' : 'grab',
-                  touchAction: 'none',
-                }}
-                train={
-                  <>
-                    {/* ACTUAL path with ref for camera follow */}
-                    <path
-                      stroke="transparent"
-                      d={path}
-                      ref={tempPathRef}
-                    />
-
-                    <path stroke="white" strokeWidth={4} d={path} />
-                    <path stroke="black" strokeWidth={2} d={path} />
-
-                    <a.g
-                      style={{
-                        offsetDistance,
-                        scale,
-                        offsetPath: `path("${path}")`,
-                      }}
-                      transform="translate(23.301 51.05)"
-                    >
-                      <image
-                        width={30}
-                        height={28}
-                        xlinkHref="/images/metro.png"
-                        transform="translate(-15 -14)"
-                      />
-                    </a.g>
-                  </>
-                }
-                ref={zoom.containerRef}
-                zoomFunction={zoom}
-              />
-
-              {/* UI CONTROLS */}
-              <div className="absolute right-4 top-20">
-                <div className="flex flex-col gap-1">
-                  <button
-                    onClick={() => setPlay((p) => !p)}
-                    className="h-8 w-8 border bg-neutral-200"
-                  >
-                    {play ? "⏸️" : "▶️"}
-                  </button>
-
-                  <button
-                    onClick={() => zoom.scale({ scaleX: 1.2, scaleY: 1.2 })}
-                    className="h-8 w-8 border bg-neutral-200"
-                  >
-                    +
-                  </button>
-
-                  <button
-                    onClick={() => zoom.scale({ scaleX: 0.8, scaleY: 0.8 })}
-                    className="h-8 w-8 border bg-neutral-200"
-                  >
-                    -
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      zoom.setTransformMatrix({
-                        ...initialTransform,
-                        translateX: -points.first.x,
-                        translateY: -points.first.y,
-
-                      })
-                    }
-                    className="h-8 w-8 border bg-neutral-200"
-                  >
-                    🚝--
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      zoom.setTransformMatrix({
-                        ...initialTransform,
-                        translateX: -points.last.x,
-                        translateY: -points.last.y,
-
-                      })
-                    }
-                    className="h-8 w-8 border bg-neutral-200"
-                  >
-                    --🛤️
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center border bg-neutral-200"
-                    onClick={zoom.center}
-                  >
-                    <DiscIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center border bg-neutral-200"
-                    onClick={zoom.reset}
-                  >
-                    <ResetIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center bg-neutral-200"
-                    onClick={zoom.clear}
-                  >
-                    <UpdateIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 items-center justify-center bg-neutral-200"
-                    onClick={() => {
-                      if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen();
-                      } else {
-                        document.exitFullscreen();
-                      }
-                    }}
-                  >
-                    <EnterFullScreenIcon />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
+    <div className="absolute inset-0">
+      <Map
+        style={{
+          width: '100%',
+          height: '100%',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
         }}
-      </Zoom>
+        train={
+          <>
+            {path ? (
+            <>
+              <path ref={routePathRef} stroke="transparent" d={path} />
+              <path stroke="white" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" d={path} />
+              <path stroke="#111827" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" d={path} />
+              <g ref={trainRef}>
+                <circle r={18} fill="rgba(255,255,255,0.28)" />
+                <image
+                  width={34}
+                  height={30}
+                  href="/images/metro.png"
+                  transform="translate(-17 -15)"
+                />
+              </g>
+            </>
+            ) : null}
+            {selectedStationPoint ? (
+              <g transform={`translate(${selectedStationPoint.x} ${selectedStationPoint.y})`} pointerEvents="none">
+                <circle r={16} fill="#dc2626" opacity={0.16}>
+                  <animate attributeName="r" values="10;24;10" dur="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.28;0.04;0.28" dur="1.8s" repeatCount="indefinite" />
+                </circle>
+                <circle r={7} fill="#dc2626" stroke="#fff" strokeWidth={2.5} />
+              </g>
+            ) : null}
+          </>
+        }
+        ref={svgRef}
+        zoomFunction={mapControls}
+      />
+
+      <div className="absolute right-4 top-4">
+        <div className="flex flex-col gap-2 rounded-md border border-white/15  p-2 shadow-lg backdrop-blur">
+          <button
+            onClick={() => path && setPlay((p) => !p)}
+            className="flex h-9 w-9 items-center justify-center rounded bg-white text-sm font-semibold text-neutral-950 disabled:opacity-40"
+            disabled={!path}
+            title={play ? 'Pause route' : 'Play route'}
+          >
+            {play ? 'II' : '▶'}
+          </button>
+          <button onClick={() => zoomBy(1.2)} className="h-9 w-9 rounded bg-white text-lg font-semibold text-neutral-950" title="Zoom in">
+            +
+          </button>
+          <button onClick={() => zoomBy(0.8)} className="h-9 w-9 rounded bg-white text-lg font-semibold text-neutral-950" title="Zoom out">
+            -
+          </button>
+          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={focusSelectedStation} title="Center map">
+            <DiscIcon />
+          </button>
+          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={() => {
+            tweenRef.current?.restart().pause();
+            setPlay(false);
+            if (pathLengthRef.current) setCameraForProgress(0);
+          }} title="Reset route">
+            <ResetIcon />
+          </button>
+          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={focusSelectedStation} title="Reset map">
+            <UpdateIcon />
+          </button>
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950"
+            title="Fullscreen"
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+              } else {
+                document.exitFullscreen();
+              }
+            }}
+          >
+            <EnterFullScreenIcon />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
