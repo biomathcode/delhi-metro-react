@@ -16,7 +16,7 @@ import stationLabels from '../data/labels.json';
 import MetroTrain from '../assets/metro.svg?react';
 import Map, { type MapControls, type MapTransform } from './metromap';
 import { getLocalizedStationName, useI18n } from '../i18n';
-import type { CinematicZoomLevel, RouteAnimationMode } from '../types/route';
+import type { CinematicZoomLevel, RouteAnimationMode, RouteSummary } from '../types/route';
 
 gsap.registerPlugin(useGSAP);
 
@@ -29,6 +29,12 @@ const WHEEL_ZOOM_IN_SCALE = 1.1625;
 const WHEEL_ZOOM_OUT_SCALE = 0.9125;
 const STATION_DWELL_SECONDS = 0.55;
 const EXPORT_FONT_STACK = '"Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif';
+const SHORTS_WIDTH = 1080;
+const SHORTS_HEIGHT = 1920;
+const SHORTS_FRAME_RATE = 30;
+const ENABLE_SHORTS_EXPORT = import.meta.env.DEV
+  && typeof window !== 'undefined'
+  && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 
 const fitTransform: MapTransform = {
   scaleX: 1,
@@ -211,10 +217,355 @@ const getRouteStops = (
   ));
 };
 
+const decodeBase64Audio = (audioBase64: string) => {
+  const binary = window.atob(audioBase64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes.buffer;
+};
+
+const shortsLanguageCode = {
+  en: 'en-IN',
+  hi: 'hi-IN',
+  mr: 'mr-IN',
+  bn: 'bn-IN',
+} as const;
+
+const getRouteEdge = (from: string, to: string) =>
+  edges.find((edge) => edge.from === from && edge.to === to) ||
+  edges.find((edge) => edge.from === to && edge.to === from);
+
+const lineNames: Record<string, Record<keyof typeof shortsLanguageCode, string>> = {
+  '#c1282b': { en: 'Red Line', hi: 'रेड लाइन', mr: 'रेड लाइन', bn: 'রেড লাইন' },
+  '#f5d618': { en: 'Yellow Line', hi: 'येलो लाइन', mr: 'येलो लाइन', bn: 'ইয়েলো লাইন' },
+  '#3e77bc': { en: 'Blue Line', hi: 'ब्लू लाइन', mr: 'ब्लू लाइन', bn: 'ব্লু লাইন' },
+  '#52aa55': { en: 'Green Line', hi: 'ग्रीन लाइन', mr: 'ग्रीन लाइन', bn: 'গ্রিন লাইন' },
+  '#8115ff': { en: 'Violet Line', hi: 'वायलेट लाइन', mr: 'वायलेट लाइन', bn: 'ভায়োলেট লাইন' },
+  '#e692be': { en: 'Pink Line', hi: 'पिंक लाइन', mr: 'पिंक लाइन', bn: 'পিঙ্ক লাইন' },
+  '#FF00FF': { en: 'Magenta Line', hi: 'मजेंटा लाइन', mr: 'मजेंटा लाइन', bn: 'ম্যাজেন্টা লাইন' },
+  '#d4d4d6': { en: 'Grey Line', hi: 'ग्रे लाइन', mr: 'ग्रे लाइन', bn: 'গ্রে লাইন' },
+  '#eb8923': { en: 'Orange Line', hi: 'ऑरेंज लाइन', mr: 'ऑरेंज लाइन', bn: 'অরেঞ্জ লাইন' },
+  '#015b97': { en: 'Airport Express Line', hi: 'एयरपोर्ट एक्सप्रेस लाइन', mr: 'एअरपोर्ट एक्सप्रेस लाइन', bn: 'এয়ারপোর্ট এক্সপ্রেস লাইন' },
+};
+
+const getLineName = (color: string, language: keyof typeof shortsLanguageCode) =>
+  lineNames[color]?.[language] || 'Metro Line';
+
+const getLineTerminal = (fromStationId: string, nextStationId: string, color: string, language: keyof typeof shortsLanguageCode) => {
+  let previousStationId = fromStationId;
+  let currentStationId = nextStationId;
+  const visited = new Set([fromStationId]);
+
+  while (!visited.has(currentStationId)) {
+    visited.add(currentStationId);
+
+    const nextEdge = edges.find((edge) =>
+      edge.stroke === color &&
+      (edge.from === currentStationId || edge.to === currentStationId) &&
+      edge.from !== previousStationId &&
+      edge.to !== previousStationId
+    );
+
+    if (!nextEdge) break;
+
+    previousStationId = currentStationId;
+    currentStationId = nextEdge.from === currentStationId ? nextEdge.to : nextEdge.from;
+  }
+
+  const fallbackName = stationLabels.find((station) => station.id === currentStationId)?.text || currentStationId;
+  return getLocalizedStationName(currentStationId, fallbackName, language);
+};
+
+const getRouteDirectionSteps = (route: RouteSummary, language: keyof typeof shortsLanguageCode) => {
+  const routeStations = route.stationDetails;
+
+  return routeStations.slice(0, -1).flatMap((station, index) => {
+    const nextStation = routeStations[index + 1];
+    const previousEdge = index > 0 ? getRouteEdge(routeStations[index - 1].id, station.id) : undefined;
+    const nextEdge = getRouteEdge(station.id, nextStation.id);
+    if (!nextEdge) return [];
+
+    const isNewLine = index === 0 || previousEdge?.stroke !== nextEdge.stroke;
+    if (!isNewLine) return [];
+
+    return [{
+      stationId: station.id,
+      stationName: station.name,
+      lineName: getLineName(nextEdge.stroke, language),
+      terminalName: getLineTerminal(station.id, nextStation.id, nextEdge.stroke, language),
+    }];
+  });
+};
+
+type ShortsScriptSegment = {
+  text: string;
+  stationId?: string;
+};
+
+const makeShortsScriptSegments = (
+  route: RouteSummary,
+  fromName: string,
+  toName: string,
+  language: keyof typeof shortsLanguageCode
+): ShortsScriptSegment[] => {
+  const directionSteps = getRouteDirectionSteps(route, language);
+  const firstDirection = directionSteps[0];
+  const interchangeDirections = directionSteps.slice(1);
+  const routeIntro = {
+    en: `We are travelling from ${fromName} to ${toName} by Delhi Metro.`,
+    hi: `हम दिल्ली मेट्रो से ${fromName} से ${toName} तक यात्रा कर रहे हैं.`,
+    mr: `आपण दिल्ली मेट्रोने ${fromName} ते ${toName} प्रवास करत आहोत.`,
+    bn: `আমরা দিল্লি মেট্রোতে ${fromName} থেকে ${toName} যাচ্ছি.`,
+  }[language];
+  const directionSentence = firstDirection
+    ? {
+      en: `From ${fromName}, take the ${firstDirection.lineName} toward ${firstDirection.terminalName}.`,
+      hi: `${fromName} से ${firstDirection.lineName} लें, ${firstDirection.terminalName} की ओर.`,
+      mr: `${fromName} पासून ${firstDirection.lineName} घ्या, ${firstDirection.terminalName} च्या दिशेने.`,
+      bn: `${fromName} থেকে ${firstDirection.lineName} ধরুন, ${firstDirection.terminalName} এর দিকে.`,
+    }[language]
+    : {
+      en: `Start at ${fromName} and follow this route step by step.`,
+      hi: `${fromName} से शुरू करें और इस रूट को स्टेप बाय स्टेप फॉलो करें.`,
+      mr: `${fromName} पासून सुरू करा आणि हा मार्ग स्टेप बाय स्टेप फॉलो करा.`,
+      bn: `${fromName} থেকে শুরু করুন এবং এই রুটটি ধাপে ধাপে ফলো করুন.`,
+    }[language];
+  const interchangeSegments = interchangeDirections.map((step) => ({
+    text: {
+      en: `At ${step.stationName}, change to the ${step.lineName} toward ${step.terminalName}.`,
+      hi: `${step.stationName} पर ${step.lineName} बदलें, ${step.terminalName} की ओर.`,
+      mr: `${step.stationName} येथे ${step.lineName} बदला, ${step.terminalName} च्या दिशेने.`,
+      bn: `${step.stationName} এ ${step.lineName} বদলান, ${step.terminalName} এর দিকে.`,
+    }[language],
+    stationId: step.stationId,
+  }));
+  const noInterchangeSegment: ShortsScriptSegment = {
+    text: {
+      en: 'No line change is needed on this route.',
+      hi: 'इस रूट में लाइन बदलने की जरूरत नहीं है.',
+      mr: 'या मार्गावर लाइन बदलण्याची गरज नाही.',
+      bn: 'এই রুটে লাইন বদলানোর দরকার নেই.',
+    }[language],
+  };
+
+  const scripts = {
+    en: [
+      { text: routeIntro, stationId: route.from },
+      { text: directionSentence, stationId: firstDirection?.stationId || route.from },
+      { text: `You will pass ${route.distance} stations in about ${route.estimatedMinutes} minutes.` },
+      { text: `The fare is around rupees ${route.fare}.` },
+      ...(interchangeSegments.length ? interchangeSegments : [noInterchangeSegment]),
+      { text: `Your final stop is ${toName}.`, stationId: route.to },
+      { text: 'Plan your Delhi Metro trip at metro dot coolhead dot in.', stationId: route.to },
+    ],
+    hi: [
+      { text: routeIntro, stationId: route.from },
+      { text: directionSentence, stationId: firstDirection?.stationId || route.from },
+      { text: `इस यात्रा में ${route.distance} स्टेशन हैं और लगभग ${route.estimatedMinutes} मिनट लगेंगे.` },
+      { text: `किराया करीब ${route.fare} रुपये है.` },
+      ...(interchangeSegments.length ? interchangeSegments : [noInterchangeSegment]),
+      { text: `आपका आखिरी स्टेशन ${toName} है.`, stationId: route.to },
+      { text: 'अपनी दिल्ली मेट्रो यात्रा metro dot coolhead dot in पर प्लान करें.', stationId: route.to },
+    ],
+    mr: [
+      { text: routeIntro, stationId: route.from },
+      { text: directionSentence, stationId: firstDirection?.stationId || route.from },
+      { text: `या प्रवासात ${route.distance} स्थानके आहेत आणि सुमारे ${route.estimatedMinutes} मिनिटे लागतील.` },
+      { text: `भाडे सुमारे ${route.fare} रुपये आहे.` },
+      ...(interchangeSegments.length ? interchangeSegments : [noInterchangeSegment]),
+      { text: `तुमचे शेवटचे स्थानक ${toName} आहे.`, stationId: route.to },
+      { text: 'तुमचा दिल्ली मेट्रो प्रवास metro dot coolhead dot in वर प्लान करा.', stationId: route.to },
+    ],
+    bn: [
+      { text: routeIntro, stationId: route.from },
+      { text: directionSentence, stationId: firstDirection?.stationId || route.from },
+      { text: `এই যাত্রায় ${route.distance}টি স্টেশন আছে এবং প্রায় ${route.estimatedMinutes} মিনিট লাগবে.` },
+      { text: `ভাড়া প্রায় ${route.fare} টাকা.` },
+      ...(interchangeSegments.length ? interchangeSegments : [noInterchangeSegment]),
+      { text: `আপনার শেষ স্টেশন ${toName}.`, stationId: route.to },
+      { text: 'আপনার দিল্লি মেট্রো যাত্রা metro dot coolhead dot in এ প্ল্যান করুন.', stationId: route.to },
+    ],
+  };
+
+  return scripts[language];
+};
+
+const wrapCanvasText = (
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+) => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+
+    if (context.measureText(nextLine).width <= maxWidth || !currentLine) {
+      currentLine = nextLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
+};
+
+const makeShortsStats = (route: RouteSummary, language: keyof typeof shortsLanguageCode) => {
+  const stats = {
+    en: `${route.distance} stations • ${route.estimatedMinutes} mins • Rs ${route.fare}`,
+    hi: `${route.distance} स्टेशन • ${route.estimatedMinutes} मिनट • ${route.fare} रुपये`,
+    mr: `${route.distance} स्थानके • ${route.estimatedMinutes} मिनिटे • ${route.fare} रुपये`,
+    bn: `${route.distance} স্টেশন • ${route.estimatedMinutes} মিনিট • ${route.fare} টাকা`,
+  };
+
+  return stats[language];
+};
+
+const getActiveRouteStation = (
+  routeStops: Array<{ stationId: string; progress: number }>,
+  route: RouteSummary,
+  progress: number
+) => {
+  const activeStop = routeStops.reduce((closest, stop) => (
+    Math.abs(stop.progress - progress) < Math.abs(closest.progress - progress) ? stop : closest
+  ), routeStops[0]);
+
+  return route.stationDetails.find((station) => station.id === activeStop?.stationId) || route.stationDetails[0];
+};
+
+const drawShortsJourneyTimeline = (
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  route: RouteSummary,
+  routeStops: Array<{ stationId: string; progress: number }>,
+  progress: number
+) => {
+  const panelX = 64;
+  const panelY = SHORTS_HEIGHT - 350;
+  const panelWidth = SHORTS_WIDTH - 128;
+  const panelHeight = 230;
+  const lineX = panelX + 72;
+  const lineY = panelY + 126;
+  const lineWidth = panelWidth - 144;
+  const activeStation = getActiveRouteStation(routeStops, route, progress);
+  const firstProgress = routeStops[0]?.progress || 0;
+  const lastProgress = routeStops[routeStops.length - 1]?.progress || 1;
+  const normalizedProgress = clamp((progress - firstProgress) / Math.max(lastProgress - firstProgress, 0.0001), 0, 1);
+  const stationColor = (stationId: string, fallback = '#009b50') =>
+    route.stationDetails.find((station) => station.id === stationId)?.lineColors[0] || fallback;
+
+  context.fillStyle = 'rgba(255, 255, 255, 0.94)';
+  context.fillRect(panelX, panelY, panelWidth, panelHeight);
+  context.fillStyle = '#111827';
+  context.font = `800 30px ${EXPORT_FONT_STACK}`;
+  context.fillText('Journey timeline', panelX + 32, panelY + 50);
+  context.fillStyle = '#525252';
+  context.font = `700 24px ${EXPORT_FONT_STACK}`;
+  context.fillText(activeStation?.name || route.fromName, panelX + 32, panelY + 88);
+
+  context.lineWidth = 10;
+  context.lineCap = 'round';
+
+  routeStops.slice(0, -1).forEach((stop, index) => {
+    const nextStop = routeStops[index + 1];
+    const startProgress = clamp((stop.progress - firstProgress) / Math.max(lastProgress - firstProgress, 0.0001), 0, 1);
+    const endProgress = clamp((nextStop.progress - firstProgress) / Math.max(lastProgress - firstProgress, 0.0001), 0, 1);
+    const startX = lineX + lineWidth * startProgress;
+    const endX = lineX + lineWidth * endProgress;
+    const edgeColor = getRouteEdge(stop.stationId, nextStop.stationId)?.stroke || stationColor(stop.stationId);
+    const visibleEndProgress = clamp(normalizedProgress, startProgress, endProgress);
+    const visibleEndX = lineX + lineWidth * visibleEndProgress;
+
+    context.strokeStyle = '#d4d4d4';
+    context.beginPath();
+    context.moveTo(startX, lineY);
+    context.lineTo(endX, lineY);
+    context.stroke();
+
+    if (normalizedProgress >= startProgress) {
+      context.strokeStyle = edgeColor;
+      context.beginPath();
+      context.moveTo(startX, lineY);
+      context.lineTo(visibleEndX, lineY);
+      context.stroke();
+    }
+  });
+
+  routeStops.forEach((stop) => {
+    const stationProgress = clamp((stop.progress - firstProgress) / Math.max(lastProgress - firstProgress, 0.0001), 0, 1);
+    const x = lineX + lineWidth * stationProgress;
+    const isPassed = stationProgress <= normalizedProgress + 0.002;
+    const isInterchange = route.interchanges.some((interchange) => interchange.id === stop.stationId);
+    const color = stationColor(stop.stationId);
+
+    context.fillStyle = isPassed ? color : '#ffffff';
+    context.strokeStyle = isInterchange ? '#dc2626' : isPassed ? color : '#a3a3a3';
+    context.lineWidth = isInterchange ? 5 : 3;
+    context.beginPath();
+    context.arc(x, lineY, isInterchange ? 11 : 8, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  });
+
+  context.fillStyle = '#111827';
+  context.font = `700 24px ${EXPORT_FONT_STACK}`;
+  context.fillText(route.fromName, panelX + 32, panelY + 184);
+  const toLabel = route.toName;
+  context.fillText(toLabel, panelX + panelWidth - 32 - context.measureText(toLabel).width, panelY + 184);
+};
+
+const loadAudioAsset = async (url: string, audioContext: AudioContext) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load audio asset: ${url}`);
+
+  return audioContext.decodeAudioData(await response.arrayBuffer());
+};
+
+const mixVoiceoverWithSfx = async (
+  voiceover: AudioBuffer,
+  effects: Array<{ buffer: AudioBuffer; start: number; gain: number }>
+) => {
+  const duration = Math.max(
+    voiceover.duration,
+    ...effects.map((effect) => effect.start + effect.buffer.duration + 0.15)
+  );
+  const output = new OfflineAudioContext(
+    voiceover.numberOfChannels,
+    Math.ceil(duration * voiceover.sampleRate),
+    voiceover.sampleRate
+  );
+
+  const voiceSource = output.createBufferSource();
+  const voiceGain = output.createGain();
+  voiceSource.buffer = voiceover;
+  voiceGain.gain.value = 0.96;
+  voiceSource.connect(voiceGain).connect(output.destination);
+  voiceSource.start(0);
+
+  effects.forEach((effect) => {
+    const sfxSource = output.createBufferSource();
+    const sfxGain = output.createGain();
+    sfxSource.buffer = effect.buffer;
+    sfxGain.gain.value = effect.gain;
+    sfxSource.connect(sfxGain).connect(output.destination);
+    sfxSource.start(Math.max(0, effect.start));
+  });
+
+  return output.startRendering();
+};
+
 function SvgComponent({
   setPlay,
   play,
   path,
+  route,
   selectedStationId,
   routeStationIds,
   onActiveStationChange,
@@ -224,6 +575,7 @@ function SvgComponent({
   setPlay: React.Dispatch<React.SetStateAction<boolean>>;
   play: boolean;
   path: string;
+  route: RouteSummary | null;
   selectedStationId: string;
   routeStationIds: string[];
   onActiveStationChange?: (stationId: string | null) => void;
@@ -233,6 +585,7 @@ function SvgComponent({
   const { language } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
+  const [isExportingShortsVideo, setIsExportingShortsVideo] = useState(false);
   const [canExportVideo, setCanExportVideo] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapGroupRef = useRef<SVGGElement | null>(null);
@@ -632,9 +985,9 @@ function SvgComponent({
       const {
         BufferTarget,
         CanvasSource,
-        Mp4OutputFormat,
         Output,
         QUALITY_HIGH,
+        WebMOutputFormat,
         canEncodeVideo,
       } = await import('mediabunny');
 
@@ -659,15 +1012,17 @@ function SvgComponent({
 
       await document.fonts?.ready;
 
-      const codec = await canEncodeVideo('avc', { width, height, bitrate: QUALITY_HIGH })
-        ? 'avc'
-        : null;
+      const codec = await canEncodeVideo('vp9', { width, height, bitrate: QUALITY_HIGH })
+        ? 'vp9'
+        : await canEncodeVideo('vp8', { width, height, bitrate: QUALITY_HIGH })
+          ? 'vp8'
+          : null;
 
-      if (!codec) throw new Error('This browser cannot encode MP4 video.');
+      if (!codec) throw new Error('This browser cannot encode WebM video.');
 
       const target = new BufferTarget();
       const output = new Output({
-        format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+        format: new WebMOutputFormat(),
         target,
       });
       const source = new CanvasSource(canvas, {
@@ -739,11 +1094,11 @@ function SvgComponent({
       await output.finalize();
       if (!target.buffer) throw new Error('Video export did not produce a file.');
 
-      const blob = new Blob([target.buffer], { type: 'video/mp4' });
+      const blob = new Blob([target.buffer], { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `delhi-metro-route-${animationMode}.mp4`;
+      link.download = `delhi-metro-route-${animationMode}.webm`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (error) {
@@ -764,6 +1119,298 @@ function SvgComponent({
     drawSvgToCanvas,
     isExportingVideo,
     path,
+    routeCameraScale,
+    routeStationIds,
+    setCameraForProgress,
+    setPlay,
+  ]);
+
+  const fetchShortsVoiceover = React.useCallback(async (script: string, targetLanguageCode: string) => {
+    const response = await fetch('/api/sarvam-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: script, targetLanguageCode }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.audio) {
+      throw new Error(payload.error || 'Could not generate Sarvam voiceover.');
+    }
+
+    const AudioContextClass = window.AudioContext
+      || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) throw new Error('Audio decoding is not supported in this browser.');
+    const audioContext = new AudioContextClass();
+
+    try {
+      return await audioContext.decodeAudioData(decodeBase64Audio(payload.audio).slice(0));
+    } finally {
+      await audioContext.close();
+    }
+  }, []);
+
+  const drawShortsFrame = React.useCallback(async (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    title: string,
+    stats: string,
+    caption: string,
+    route: RouteSummary,
+    routeStops: Array<{ stationId: string; progress: number }>,
+    progress: number
+  ) => {
+    await drawSvgToCanvas(canvas, context, SHORTS_WIDTH, SHORTS_HEIGHT);
+
+    context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    context.fillRect(64, 96, SHORTS_WIDTH - 128, 430);
+    context.fillStyle = '#dc2626';
+    context.font = `700 34px ${EXPORT_FONT_STACK}`;
+    context.fillText('DELHI METRO ROUTE', 96, 154);
+
+    context.fillStyle = '#111827';
+    context.font = `800 58px ${EXPORT_FONT_STACK}`;
+    const titleLines = wrapCanvasText(context, title, SHORTS_WIDTH - 192).slice(0, 3);
+    titleLines.forEach((line, index) => context.fillText(line, 96, 226 + index * 68));
+
+    context.fillStyle = '#009b50';
+    context.font = `700 36px ${EXPORT_FONT_STACK}`;
+    context.fillText(stats, 96, 394);
+
+    context.fillStyle = '#111827';
+    context.font = `700 42px ${EXPORT_FONT_STACK}`;
+    wrapCanvasText(context, caption, SHORTS_WIDTH - 192).slice(0, 2).forEach((line, index) => {
+      context.fillText(line, 96, 456 + index * 52);
+    });
+
+    context.fillStyle = 'rgba(255, 255, 255, 0.86)';
+    context.fillRect(SHORTS_WIDTH - 390, SHORTS_HEIGHT - 96, 326, 48);
+    context.fillStyle = '#111827';
+    context.font = `800 28px ${EXPORT_FONT_STACK}`;
+    context.fillText('metro.coolhead.in', SHORTS_WIDTH - 366, SHORTS_HEIGHT - 64);
+    drawShortsJourneyTimeline(context, route, routeStops, progress);
+  }, [drawSvgToCanvas]);
+
+  const downloadYoutubeShortsVideo = React.useCallback(async () => {
+    const svg = svgRef.current;
+    const measure = pathMeasureRef.current;
+    const pathLength = pathLengthRef.current;
+
+    if (!ENABLE_SHORTS_EXPORT || !path || !route || !svg || !measure || !pathLength || isExportingShortsVideo) return;
+
+    setIsExportingShortsVideo(true);
+    tweenRef.current?.pause();
+    setPlay(false);
+
+    const previousTrainTransform = trainRef.current?.getAttribute('transform');
+    const previousMapTransform = transformRef.current;
+
+    try {
+      const {
+        AudioBufferSource,
+        BufferTarget,
+        CanvasSource,
+        Mp4OutputFormat,
+        Output,
+        QUALITY_HIGH,
+        canEncodeAudio,
+        canEncodeVideo,
+      } = await import('mediabunny');
+
+      const fromName = getLocalizedStationName(route.from, route.fromName, language);
+      const toName = getLocalizedStationName(route.to, route.toName, language);
+      const targetLanguageCode = shortsLanguageCode[language];
+      const scriptSegments = makeShortsScriptSegments(route, fromName, toName, language);
+      const script = scriptSegments.map((segment) => segment.text).join(' ');
+      const voiceover = await fetchShortsVoiceover(script, targetLanguageCode);
+      const AudioContextClass = window.AudioContext
+        || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) throw new Error('Audio decoding is not supported in this browser.');
+      const assetAudioContext = new AudioContextClass();
+      const [whooshEffect, notificationEffect] = await Promise.all([
+        loadAudioAsset('/music/whoosh.mp3', assetAudioContext),
+        loadAudioAsset('/music/notification.mp3', assetAudioContext),
+      ]);
+      await assetAudioContext.close();
+      const canvas = typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(SHORTS_WIDTH, SHORTS_HEIGHT)
+        : document.createElement('canvas');
+
+      if (canvas instanceof HTMLCanvasElement) {
+        canvas.width = SHORTS_WIDTH;
+        canvas.height = SHORTS_HEIGHT;
+      }
+
+      const context = canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+      if (!context) throw new Error('Canvas export is not supported in this browser.');
+
+      await document.fonts?.ready;
+
+      const videoCodec = await canEncodeVideo('avc', { width: SHORTS_WIDTH, height: SHORTS_HEIGHT, bitrate: QUALITY_HIGH })
+        ? 'avc'
+        : null;
+      const audioCodec = await canEncodeAudio('aac', {
+        numberOfChannels: voiceover.numberOfChannels,
+        sampleRate: voiceover.sampleRate,
+        bitrate: QUALITY_HIGH,
+      })
+        ? 'aac'
+        : null;
+
+      if (!videoCodec) throw new Error('This browser cannot encode MP4 video.');
+      if (!audioCodec) throw new Error('This browser cannot encode AAC audio for the Shorts voiceover.');
+
+      const target = new BufferTarget();
+      const output = new Output({
+        format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+        target,
+      });
+      const videoSource = new CanvasSource(canvas, {
+        codec: videoCodec,
+        bitrate: QUALITY_HIGH,
+      });
+      const audioSource = new AudioBufferSource({
+        codec: audioCodec,
+        bitrate: QUALITY_HIGH,
+      });
+
+      output.addVideoTrack(videoSource);
+      output.addAudioTrack(audioSource);
+      await output.start();
+
+      const routeStops = getRouteStops(measure, pathLength, routeStationIds);
+      const firstStop = routeStops[0];
+      const lastStop = routeStops[routeStops.length - 1];
+      if (!firstStop || !lastStop) throw new Error('Route animation is not ready to export.');
+
+      const wordCounts = scriptSegments.map((segment) => segment.text.split(/\s+/).filter(Boolean).length);
+      const totalWords = wordCounts.reduce((total, count) => total + count, 0) || scriptSegments.length;
+      const voiceoverDuration = voiceover.duration + 0.25;
+      const segmentDurations = wordCounts.map((count) => voiceoverDuration * (count / totalWords));
+      const segmentTimings = segmentDurations.map((segmentDuration, index) => {
+        const start = segmentDurations.slice(0, index).reduce((total, duration) => total + duration, 0);
+
+        return {
+          start,
+          end: start + segmentDuration,
+        };
+      });
+      const interchangeStationIds = new Set(route.interchanges.map((interchange) => interchange.id));
+      const firstInterchangeSegmentIndex = scriptSegments.findIndex((segment) =>
+        Boolean(segment.stationId && interchangeStationIds.has(segment.stationId))
+      );
+      const notificationStart = firstInterchangeSegmentIndex >= 0
+        ? segmentTimings[firstInterchangeSegmentIndex]?.start
+        : segmentTimings[3]?.start;
+      const mixedAudio = await mixVoiceoverWithSfx(voiceover, [
+        { buffer: whooshEffect, start: segmentTimings[0]?.end || 0.8, gain: 0.34 },
+        { buffer: notificationEffect, start: notificationStart || segmentTimings[2]?.end || 2.8, gain: 0.22 },
+      ]);
+      const duration = Math.max(voiceoverDuration, mixedAudio.duration);
+      const frameDuration = 1 / SHORTS_FRAME_RATE;
+      const frameCount = Math.max(2, Math.ceil(duration * SHORTS_FRAME_RATE));
+      const title = `${fromName} to ${toName}`;
+      const stats = makeShortsStats(route, language);
+      const baseExportScale = routeCameraScale;
+      const zoomedInScale = baseExportScale * 1.18;
+      const zoomedOutScale = Math.max(MIN_MAP_SCALE, baseExportScale * 0.56);
+      const routeAnimationDuration = clamp(duration * 0.88, 2.5, Math.max(2.5, duration - 0.55));
+      const routeProgressDistance = Math.max(lastStop.progress - firstStop.progress, 0.0001);
+      const routeStepSegments = routeStops.slice(1).map((stop, index) => {
+        const previousStop = routeStops[index];
+        return {
+          from: previousStop.progress,
+          to: stop.progress,
+          duration: routeAnimationDuration * ((stop.progress - previousStop.progress) / routeProgressDistance),
+        };
+      });
+
+      await audioSource.add(mixedAudio);
+
+      for (let frame = 0; frame <= frameCount; frame += 1) {
+        const timestamp = frame * frameDuration;
+        const segmentIndex = segmentTimings.findIndex((segment) => timestamp >= segment.start && timestamp <= segment.end);
+        const activeSegmentIndex = segmentIndex === -1 ? scriptSegments.length - 1 : segmentIndex;
+        const routeClock = clamp(timestamp / routeAnimationDuration, 0, 1);
+        const smoothRouteProgress = routeClock < 0.5
+          ? 2 * routeClock * routeClock
+          : 1 - Math.pow(-2 * routeClock + 2, 2) / 2;
+        let progress = firstStop.progress + routeProgressDistance * smoothRouteProgress;
+
+        if (animationMode === 'step') {
+          let remainingTime = Math.min(timestamp, routeAnimationDuration);
+
+          for (const segment of routeStepSegments) {
+            if (remainingTime <= segment.duration) {
+              const currentStepProgress = clamp(remainingTime / Math.max(segment.duration, frameDuration), 0, 1);
+              const easedStepProgress = currentStepProgress < 0.5
+                ? 2 * currentStepProgress * currentStepProgress
+                : 1 - Math.pow(-2 * currentStepProgress + 2, 2) / 2;
+              progress = segment.from + (segment.to - segment.from) * easedStepProgress;
+              break;
+            }
+
+            remainingTime -= segment.duration;
+            progress = segment.to;
+          }
+        }
+
+        let cameraScale = baseExportScale;
+
+        if (timestamp < 1.15) {
+          const introZoomProgress = clamp(timestamp / 1.15, 0, 1);
+          const easedIntroZoom = 1 - Math.pow(1 - introZoomProgress, 3);
+          cameraScale = zoomedOutScale + (zoomedInScale - zoomedOutScale) * easedIntroZoom;
+        } else if (timestamp >= routeAnimationDuration) {
+          const zoomOutProgress = clamp((timestamp - routeAnimationDuration) / Math.max(duration - routeAnimationDuration, 0.4), 0, 1);
+          const easedZoomOut = 1 - Math.pow(1 - zoomOutProgress, 3);
+          cameraScale = baseExportScale + (zoomedOutScale - baseExportScale) * easedZoomOut;
+        }
+
+        setCameraForProgress(progress, cameraScale);
+        await drawShortsFrame(
+          canvas,
+          context,
+          title,
+          stats,
+          scriptSegments[activeSegmentIndex].text,
+          route,
+          routeStops,
+          progress
+        );
+        await videoSource.add(timestamp, frameDuration, { keyFrame: frame % SHORTS_FRAME_RATE === 0 });
+      }
+
+      await output.finalize();
+      if (!target.buffer) throw new Error('Shorts export did not produce a file.');
+
+      const blob = new Blob([target.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `delhi-metro-shorts-${route.from}-to-${route.to}.mp4`.toLowerCase();
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      console.error(error);
+      window.alert(error instanceof Error ? error.message : 'Could not export YouTube Shorts video.');
+    } finally {
+      if (previousTrainTransform) {
+        trainRef.current?.setAttribute('transform', previousTrainTransform);
+      } else {
+        trainRef.current?.removeAttribute('transform');
+      }
+      applyTransform(previousMapTransform, true);
+      setIsExportingShortsVideo(false);
+    }
+  }, [
+    applyTransform,
+    animationMode,
+    drawShortsFrame,
+    fetchShortsVoiceover,
+    isExportingShortsVideo,
+    language,
+    path,
+    route,
     routeCameraScale,
     routeStationIds,
     setCameraForProgress,
@@ -879,6 +1526,26 @@ function SvgComponent({
               <VideoIcon />
             )}
           </button>
+          {ENABLE_SHORTS_EXPORT ? (
+            <button
+              type="button"
+              className="flex h-9 items-center justify-center gap-1 rounded bg-white px-2 text-[11px] font-bold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
+              title={canExportVideo ? 'Generate YouTube Shorts video with Sarvam voiceover' : 'Shorts export is not supported in this browser'}
+              aria-label="Generate YouTube Shorts video"
+              aria-busy={isExportingShortsVideo}
+              disabled={!path || !route || !canExportVideo || isExportingShortsVideo}
+              onClick={downloadYoutubeShortsVideo}
+            >
+              {isExportingShortsVideo ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-950" />
+              ) : (
+                <>
+                  <VideoIcon />
+                  <span>Shorts</span>
+                </>
+              )}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

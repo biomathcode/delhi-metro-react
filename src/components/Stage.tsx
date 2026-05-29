@@ -112,7 +112,7 @@ function MetroMapStage() {
     const { language, t } = useI18n();
     const [play, setPlay] = useState(false);
     const [animationMode, setAnimationMode] = useState<'smooth' | 'step'>('smooth');
-    const [cinematicZoom, setCinematicZoom] = useState<CinematicZoomLevel>(1);
+    const [cinematicZoom, setCinematicZoom] = useState<CinematicZoomLevel>(2);
     const [activeSnapPoint, setActiveSnapPoint] = useState<number | string | null>('220px');
     const [activeRouteStationId, setActiveRouteStationId] = useState<string | null>(null);
     const isDesktop = useIsDesktop();
@@ -184,6 +184,7 @@ function MetroMapStage() {
                         <Suspense fallback={<MapFallback />}>
                             <SvgComponent
                                 path={path}
+                                route={route}
                                 selectedStationId={selectedFrom}
                                 routeStationIds={routeStationIds}
                                 onActiveStationChange={setActiveRouteStationId}
