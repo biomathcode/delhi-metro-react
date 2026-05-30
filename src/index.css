@@ -22,6 +22,47 @@ body {
   -webkit-user-select: none;
 }
 
+@utility scrollbar-gutter-stable {
+  scrollbar-gutter: stable;
+}
+
+@utility scrollbar-gutter-both {
+  scrollbar-gutter: stable both-edges;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.bottom-sheet-scroll {
+  overflow-x: visible;
+  scrollbar-color: #a3a3a3 transparent;
+}
+
+.bottom-sheet-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bottom-sheet-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bottom-sheet-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #a3a3a3;
+  background-clip: content-box;
+}
+
+.dark .bottom-sheet-scroll {
+  scrollbar-color: #52525b transparent;
+}
+
+.dark .bottom-sheet-scroll::-webkit-scrollbar-thumb {
+  background: #52525b;
+  background-clip: content-box;
+}
+
 .metro-map {
   background: #f4f0e8;
 }

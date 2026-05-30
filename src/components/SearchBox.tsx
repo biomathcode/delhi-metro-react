@@ -119,6 +119,7 @@ export function SearchBox({
   onCinematicZoomChange,
   onFromChange,
   onRoutePlan,
+  onStationSearchFocus,
 }: {
   animationMode?: RouteAnimationMode;
   cinematicZoom?: CinematicZoomLevel;
@@ -127,6 +128,7 @@ export function SearchBox({
   onCinematicZoomChange?: (zoom: CinematicZoomLevel) => void;
   onFromChange?: () => void;
   onRoutePlan?: (plannedRoute?: ReturnType<typeof buildRoutes>[number]) => void;
+  onStationSearchFocus?: () => void;
 }) {
   const { language, setLanguage, t } = useI18n();
   const { theme, toggleTheme } = useTheme();
@@ -215,6 +217,7 @@ export function SearchBox({
                 formatOptionLabel={(option) => <StationOptionLabel option={option} />}
                 styles={selectStyles}
                 isSearchable={!disableSearch}
+                onFocus={onStationSearchFocus}
               />
             </div>
           )}
@@ -240,6 +243,7 @@ export function SearchBox({
                 formatOptionLabel={(option) => <StationOptionLabel option={option} />}
                 styles={selectStyles}
                 isSearchable={!disableSearch}
+                onFocus={onStationSearchFocus}
               />
             </div>
           )}

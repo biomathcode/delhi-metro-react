@@ -16,6 +16,12 @@ const SearchBox = lazy(() => import('./SearchBox'));
 const RouteSharePanel = lazy(() => import('./RouteSharePanel'));
 const JourneyTimeline = lazy(() => import('./JourneyTimeline'));
 
+type NavigatorWithVirtualKeyboard = Navigator & {
+    virtualKeyboard?: {
+        overlaysContent: boolean;
+    };
+};
+
 function useIsDesktop() {
     const [isDesktop, setIsDesktop] = useState(() => {
         if (typeof window === 'undefined') return false;
@@ -286,6 +292,11 @@ function MetroMapStage() {
     const routeToName = route ? getLocalizedStationName(route.to, route.toName, language) : '';
 
     const handleFromChange = useCallback(() => setPlay(false), []);
+    const handleStationSearchFocus = useCallback(() => {
+        if (isDesktop) return;
+
+        setActiveSnapPoint(1);
+    }, [isDesktop]);
     const handleRoutePlan = useCallback((plannedRoute?: RoutePlan) => {
         setActiveSnapPoint('100px');
         setRoutePreviewMode(false);
@@ -314,6 +325,18 @@ function MetroMapStage() {
         setPlay((currentPlay) => isActiveRoute ? !currentPlay : true);
     }, [route, routeOptions, setRoute]);
 
+    useEffect(() => {
+        const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
+        if (!virtualKeyboard) return;
+
+        const previousOverlaysContent = virtualKeyboard.overlaysContent;
+        virtualKeyboard.overlaysContent = true;
+
+        return () => {
+            virtualKeyboard.overlaysContent = previousOverlaysContent;
+        };
+    }, []);
+
     const cockpitBody = (
         <>
             <Suspense fallback={<SearchFallback />}>
@@ -325,6 +348,7 @@ function MetroMapStage() {
                     onCinematicZoomChange={setCinematicZoom}
                     onFromChange={handleFromChange}
                     onRoutePlan={handleRoutePlan}
+                    onStationSearchFocus={handleStationSearchFocus}
                 />
             </Suspense>
             <section className="grid gap-3 border-t border-neutral-200 pt-3 dark:border-zinc-700 sm:gap-4 sm:pt-5">
@@ -402,7 +426,7 @@ function MetroMapStage() {
                     >
                         <Drawer.Portal>
                             <Drawer.Content
-                                className="fixed inset-x-2 bottom-2 z-30 flex max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-hidden overflow-x-hidden rounded-xl border border-neutral-200 bg-white p-3 shadow-2xl outline-none dark:border-zinc-700 dark:bg-zinc-900 sm:inset-x-4 sm:bottom-4 sm:max-w-[calc(100vw-2rem)] sm:gap-4 sm:p-5"
+                                className="fixed inset-x-2 bottom-2 z-30 flex max-w-[calc(100vw-1rem)] flex-col gap-2 overflow-hidden rounded-xl border border-neutral-200 bg-white p-3 shadow-2xl outline-none dark:border-zinc-700 dark:bg-zinc-900 sm:inset-x-4 sm:bottom-4 sm:max-w-[calc(100vw-2rem)] sm:gap-4 sm:p-5"
                                 style={{
                                     bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
                                     height: 'calc(100svh - env(safe-area-inset-bottom, 0px) - 16px)',
@@ -416,8 +440,8 @@ function MetroMapStage() {
                                         aria-label={t('routePlanner')}
                                     />
                                 </div>
-                                <div className="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto pr-1">
-                                    <div className="grid min-w-0 gap-3 sm:gap-5">
+                                <div className="bottom-sheet-scroll scrollbar-thin scrollbar-gutter-stable min-h-0 min-w-0 overflow-y-auto">
+                                    <div className="grid min-w-0 gap-3 pe-2 sm:gap-5">
                                         {cockpitBody}
                                     </div>
                                 </div>
