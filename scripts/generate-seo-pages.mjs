@@ -84,13 +84,17 @@ const pathFromTree = (previous, to) => {
   return path;
 };
 
-const estimateFare = (stops) => {
-  if (stops <= 2) return 10;
-  if (stops <= 5) return 20;
-  if (stops <= 12) return 30;
-  if (stops <= 21) return 40;
-  if (stops <= 32) return 50;
-  return 60;
+const interchangeFareStopAllowance = 2;
+
+const estimateFare = (stops, interchangeCount = 0) => {
+  const fareStops = stops + (interchangeCount * interchangeFareStopAllowance);
+
+  if (fareStops <= 2) return 11;
+  if (fareStops <= 5) return 21;
+  if (fareStops <= 12) return 32;
+  if (fareStops <= 21) return 43;
+  if (fareStops <= 32) return 54;
+  return 64;
 };
 
 const edgeFor = (from, to) =>
@@ -117,7 +121,7 @@ const routeSummary = (from, to, previous) => {
     toName: stationName(to),
     pathIds,
     stops: distance,
-    fare: estimateFare(distance),
+    fare: estimateFare(distance, interchanges.length),
     estimatedMinutes: Math.max(2, distance * 2),
     interchanges,
   };

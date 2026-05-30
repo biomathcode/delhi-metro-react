@@ -130,7 +130,7 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
 
     if (!route) {
         return (
-            <section className="rounded-lg bg-white p-3 text-sm text-neutral-500">
+            <section className="rounded-lg bg-white p-3 text-sm text-neutral-500 dark:bg-zinc-900 dark:text-zinc-400">
                 {t('journeyTimelinePrompt')}
             </section>
         );
@@ -139,16 +139,16 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
     return (
         <section className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-neutral-950">{t('journeyTimeline')}</h3>
+                <h3 className="text-sm font-semibold text-neutral-950 dark:text-zinc-100">{t('journeyTimeline')}</h3>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-neutral-500">{t('stations', { count: route.stationDetails.length })}</span>
+                    <span className="text-xs font-medium text-neutral-500 dark:text-zinc-400">{t('stations', { count: route.stationDetails.length })}</span>
                     <button
                         type="button"
                         aria-label={t('downloadJourneyTimeline')}
                         title={t('downloadTimeline')}
                         disabled={isDownloading}
                         onClick={downloadTimeline}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                     >
                         <DownloadIcon />
                     </button>
@@ -159,7 +159,7 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
                 ref={scrollRef}
                 className="-mx-3 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-                <div ref={captureRef} className="flex min-w-max snap-x snap-mandatory items-center bg-white px-3 py-2">
+                <div ref={captureRef} className="flex min-w-max snap-x snap-mandatory items-center bg-white px-3 py-2 dark:bg-zinc-900">
                     {timelineItems.map(({ station, previousColor, nextColor, isInterchange, showDirection, terminalName, isFirst, isLast }) => {
                         const isActive = station.id === activeStationId;
                         const dotColor = isLast ? previousColor || nextColor : nextColor;
@@ -171,11 +171,11 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
                                 toName={terminalName}
                                 lineColor={nextColor}
                                 label={t('toward')}
-                                className={`rounded-lg ${isActive ? 'ring-2 ring-neutral-950/10' : ''}`}
+                                className={`${isActive ? 'ring-2 ring-neutral-950/10 dark:ring-white/15' : ''}`}
                                 compact
                             />
                         ) : (
-                            <span className={`block max-w-full whitespace-normal text-center text-sm font-semibold leading-tight transition-colors ${isActive ? 'text-neutral-950' : 'text-neutral-500'}`}>
+                            <span className={`block max-w-full whitespace-normal text-center text-sm font-semibold leading-tight transition-colors ${isActive ? 'text-neutral-950 dark:text-zinc-100' : 'text-neutral-500 dark:text-zinc-400'}`}>
                                 {stationDisplayName}
                             </span>
                         );
@@ -202,14 +202,14 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
                                         style={{ backgroundColor: nextColor }}
                                     />
                                     <span
-                                        className={`relative z-10 h-6 w-6 rounded-full border-[7px] border-white shadow-sm transition-transform ${isActive ? 'scale-110 ring-4 ring-neutral-900/15' : ''}`}
+                                        className={`relative z-10 h-6 w-6 rounded-full border-[7px] border-white shadow-sm transition-transform dark:border-zinc-900 ${isActive ? 'scale-110 ring-4 ring-neutral-900/15 dark:ring-white/15' : ''}`}
                                         style={{ backgroundColor: dotColor }}
                                     />
                                 </div>
 
                                 <div className="flex h-full w-full flex-col items-center justify-start px-1 pt-2">
                                     {placeAbove ? null : label}
-                                    <span className={`mt-1 text-[11px] font-semibold ${isInterchange ? 'text-neutral-400' : 'text-transparent'}`}>
+                                    <span className={`mt-1 text-xs font-semibold ${isInterchange ? 'text-neutral-400 dark:text-zinc-500' : 'text-transparent'}`}>
                                         {t('change')}
                                     </span>
                                 </div>

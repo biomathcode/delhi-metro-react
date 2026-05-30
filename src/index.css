@@ -1,11 +1,73 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
+}
+
+.gesture-grabbing {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.gesture-grabbing * {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.metro-map {
+  background: #f4f0e8;
+}
+
+.metro-map text {
+  fill: #18181b;
+  transition: fill 180ms ease;
+}
+
+.metro-map .river path,
+.metro-map .line,
+.metro-map .interchange,
+.metro-map text {
+  transition:
+    fill 180ms ease,
+    stroke 180ms ease,
+    opacity 180ms ease;
+}
+
+.dark .metro-map {
+  background: #27272a;
+}
+
+.dark .metro-map text {
+  fill: #d4d4d8;
+}
+
+.dark .metro-map .river path {
+  stroke: #164e63;
+  opacity: 0.8;
+}
+
+.dark .metro-map .line {
+  filter: saturate(1.08) brightness(1.12);
+}
+
+.dark .metro-map .interchange {
+  fill: #18181b;
+}
+
+.dark .metro-map .route-highlight-halo {
+  stroke: #27272a;
+}
+
+.dark .metro-map .route-highlight-line {
+  stroke: #fafafa;
 }
 
 .route-mode-switch {
@@ -88,6 +150,20 @@ body {
   padding: 4px;
 }
 
+.dark .cinematic-zoom-control {
+  border-color: #3f3f46;
+  background: #18181b;
+}
+
+.dark .cinematic-zoom-control button {
+  color: #d4d4d8;
+}
+
+.dark .cinematic-zoom-control .cinematic-zoom-option-active {
+  background: #009b50;
+  color: white;
+}
+
 .cinematic-zoom-control button {
   min-width: 0;
   border-radius: 999px;
@@ -112,10 +188,44 @@ body {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14), 0 1px 5px rgb(0 0 0 / 0.16);
 }
 
+.route-options-scroll {
+  scrollbar-width: none;
+  scroll-padding-inline: 8px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 28px), transparent);
+}
+
+.route-options-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.route-option-card {
+  animation: route-option-enter 220ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+  will-change: transform, opacity;
+}
+
+.route-option-card:active {
+  transform: scale(0.985);
+}
+
+@keyframes route-option-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .route-mode-switch,
   .route-mode-switch-thumb,
-  .cinematic-zoom-control button {
+  .cinematic-zoom-control button,
+  .route-option-card {
+    animation: none;
     transition: none;
   }
 }

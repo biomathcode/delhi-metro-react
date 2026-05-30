@@ -13,7 +13,7 @@ function RouteDirectionCard({ fromName, toName, lineColor = '#111827', label = '
     const { t } = useI18n();
 
     return (
-        <div className={`flex w-full items-center rounded-[16px] bg-[#F5F5F5] ${compact ? 'max-w-[176px] gap-2 px-2.5 py-2' : 'aspect-[293.4/101.89] max-w-[293.4px] gap-3 px-3'} ${className}`}>
+        <div className={`flex w-full items-center rounded-lg bg-[#F5F5F5] dark:bg-zinc-800 ${compact ? 'max-w-[176px] gap-2 px-2.5 py-2' : 'aspect-[293.4/101.89] max-w-[293.4px] gap-3 px-3'} ${className}`}>
             <svg
                 width="71"
                 height="71"
@@ -29,8 +29,8 @@ function RouteDirectionCard({ fromName, toName, lineColor = '#111827', label = '
             </svg>
 
             <div className="min-w-0">
-                <p className={`truncate font-semibold text-neutral-950 ${compact ? 'text-[11px]' : 'text-sm'}`}>{fromName}</p>
-                <p className={`mt-0.5 truncate font-medium text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>
+                <p className={`truncate font-semibold text-neutral-950 dark:text-zinc-100 ${compact ? 'text-xs' : 'text-sm'}`}>{fromName}</p>
+                <p className="mt-0.5 truncate text-xs font-medium text-neutral-500 dark:text-zinc-400">
                     {toName ? `${label} ${toName}` : t('selectDestination')}
                 </p>
             </div>

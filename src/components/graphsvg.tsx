@@ -125,6 +125,45 @@ const createFocusTransform = (point: { x: number; y: number }, scale = ROUTE_CAM
   translateY: VIEWBOX_HEIGHT / 2 - point.y * scale,
 });
 
+const createRouteFitTransform = (measure: SVGPathElement, pathLength: number): MapTransform => {
+  const sampleCount = 160;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (let index = 0; index <= sampleCount; index += 1) {
+    const point = measure.getPointAtLength((pathLength * index) / sampleCount);
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+
+  if (![minX, minY, maxX, maxY].every(Number.isFinite)) return fitTransform;
+
+  const padding = 180;
+  const routeWidth = Math.max(maxX - minX, 1);
+  const routeHeight = Math.max(maxY - minY, 1);
+  const routeCenterX = minX + routeWidth / 2;
+  const routeCenterY = minY + routeHeight / 2;
+  const scale = clamp(
+    Math.min(
+      (VIEWBOX_WIDTH - padding * 2) / routeWidth,
+      (VIEWBOX_HEIGHT - padding * 2) / routeHeight
+    ),
+    1,
+    ROUTE_CAMERA_SCALE
+  );
+
+  return {
+    scaleX: scale,
+    scaleY: scale,
+    translateX: VIEWBOX_WIDTH / 2 - routeCenterX * scale,
+    translateY: VIEWBOX_HEIGHT / 2 - routeCenterY * scale,
+  };
+};
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -591,6 +630,8 @@ function SvgComponent({
   onActiveStationChange,
   animationMode,
   cinematicZoom,
+  routeFitRequest,
+  routePreviewMode = false,
 }: {
   setPlay: React.Dispatch<React.SetStateAction<boolean>>;
   play: boolean;
@@ -601,6 +642,8 @@ function SvgComponent({
   onActiveStationChange?: (stationId: string | null) => void;
   animationMode: RouteAnimationMode;
   cinematicZoom: CinematicZoomLevel;
+  routeFitRequest?: number;
+  routePreviewMode?: boolean;
 }) {
   const { language } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
@@ -670,6 +713,12 @@ function SvgComponent({
   useEffect(() => {
     playRef.current = play;
   }, [play]);
+
+  useEffect(() => {
+    document.body.classList.toggle('gesture-grabbing', isDragging);
+
+    return () => document.body.classList.remove('gesture-grabbing');
+  }, [isDragging]);
 
   useEffect(() => {
     setCanExportVideo(typeof VideoEncoder !== 'undefined');
@@ -747,18 +796,24 @@ function SvgComponent({
     pathLengthRef.current = length;
 
     const firstPoint = measure.getPointAtLength(0);
+    const nextPoint = measure.getPointAtLength(clamp(4, 0, length));
+    const angle = Math.atan2(nextPoint.y - firstPoint.y, nextPoint.x - firstPoint.x) * (180 / Math.PI);
     routeProgressRef.current = 0;
-    trainRef.current?.setAttribute('transform', `translate(${firstPoint.x} ${firstPoint.y})`);
+    trainRef.current?.setAttribute('transform', `translate(${firstPoint.x} ${firstPoint.y}) rotate(${angle})`);
     onActiveStationChange?.(routeStationIds[0] || null);
-    requestAnimationFrame(() => {
-      applyTransform({
+    const initialTransform = routePreviewMode
+      ? createRouteFitTransform(measure, length)
+      : {
         scaleX: routeCameraScale,
         scaleY: routeCameraScale,
         translateX: VIEWBOX_WIDTH / 2 - firstPoint.x * routeCameraScale,
         translateY: VIEWBOX_HEIGHT / 2 - firstPoint.y * routeCameraScale,
-      }, true);
+      };
+
+    requestAnimationFrame(() => {
+      applyTransform(initialTransform, true);
     });
-  }, [path, routeStationIds, applyTransform, onActiveStationChange, routeCameraScale]);
+  }, [path, routePreviewMode, routeStationIds, applyTransform, onActiveStationChange, routeCameraScale]);
 
   useEffect(() => {
     if (!pathLengthRef.current) return;
@@ -808,7 +863,9 @@ function SvgComponent({
       },
     });
 
-    setCameraForProgress(0);
+    if (!routePreviewMode) {
+      setCameraForProgress(0);
+    }
 
     if (animationMode === 'smooth') {
       const firstStop = routeStops[0];
@@ -816,7 +873,9 @@ function SvgComponent({
 
       if (firstStop && lastStop) {
         proxy.progress = firstStop.progress;
-        setCameraForProgress(firstStop.progress);
+        if (!routePreviewMode) {
+          setCameraForProgress(firstStop.progress);
+        }
         timeline.to(proxy, {
           progress: lastStop.progress,
           duration: clamp(Math.abs(lastStop.progress - firstStop.progress) * pathLength / 95, 0.7, 8),
@@ -860,13 +919,36 @@ function SvgComponent({
       tweenRef.current?.kill();
       tweenRef.current = null;
     };
-  }, { dependencies: [path, routeStationIds, setCameraForProgress, setPlay, applyTransform, onActiveStationChange, animationMode], revertOnUpdate: true });
+  }, { dependencies: [path, routePreviewMode, routeStationIds, setCameraForProgress, setPlay, applyTransform, onActiveStationChange, animationMode], revertOnUpdate: true });
 
   useEffect(() => {
     if (!tweenRef.current) return;
-    if (play) tweenRef.current.play();
-    else tweenRef.current.pause();
+    if (play) {
+      if (tweenRef.current.progress() >= 1) {
+        tweenRef.current.play(0);
+      } else {
+        tweenRef.current.play();
+      }
+    } else {
+      tweenRef.current.pause();
+    }
   }, [play]);
+
+  useEffect(() => {
+    if (!routeFitRequest || !pathLengthRef.current || !pathMeasureRef.current) return;
+
+    const measure = pathMeasureRef.current;
+    const pathLength = pathLengthRef.current;
+    const firstPoint = measure.getPointAtLength(0);
+    const nextPoint = measure.getPointAtLength(clamp(4, 0, pathLength));
+    const angle = Math.atan2(nextPoint.y - firstPoint.y, nextPoint.x - firstPoint.x) * (180 / Math.PI);
+
+    tweenRef.current?.pause(0);
+    routeProgressRef.current = 0;
+    trainRef.current?.setAttribute('transform', `translate(${firstPoint.x} ${firstPoint.y}) rotate(${angle})`);
+    onActiveStationChange?.(routeStationIds[0] || null);
+    applyTransform(createRouteFitTransform(measure, pathLength), true);
+  }, [applyTransform, onActiveStationChange, path, routeFitRequest, routeStationIds]);
 
   const mapControls = useMemo<MapControls>(() => ({
     transform: fitTransform,
@@ -1516,8 +1598,8 @@ function SvgComponent({
             {path ? (
               <>
                 <path ref={routePathRef} stroke="transparent" d={path} />
-                <path stroke="white" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" d={path} />
-                <path stroke="#111827" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" d={path} />
+                <path className="route-highlight-halo" stroke="white" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" d={path} />
+                <path className="route-highlight-line" stroke="#111827" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" d={path} />
                 <g
                   ref={trainRef}
                   style={{ willChange: 'auto' }}
@@ -1543,25 +1625,25 @@ function SvgComponent({
       />
 
       <div className="absolute right-0 top-0">
-        <div className="flex flex-col gap-2 rounded-md border border-white/15  p-2 shadow-lg backdrop-blur">
+        <div className="flex flex-col gap-2 rounded-lg border border-white/15 p-2 shadow-lg backdrop-blur">
           <button
             onClick={() => path && setPlay((p) => !p)}
-            className="flex h-9 w-9 items-center justify-center rounded bg-white text-sm font-semibold text-neutral-950 disabled:opacity-40"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-sm font-semibold text-neutral-950 disabled:opacity-40 dark:bg-zinc-900 dark:text-zinc-100"
             disabled={!path}
             title={play ? 'Pause route' : 'Play route'}
           >
             {play ? 'II' : '▶'}
           </button>
-          <button onClick={() => zoomBy(1.2)} className="h-9 w-9 rounded bg-white text-lg font-semibold text-neutral-950" title="Zoom in">
+          <button onClick={() => zoomBy(1.2)} className="h-10 w-10 rounded-lg bg-white text-lg font-semibold text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100" title="Zoom in">
             +
           </button>
-          <button onClick={() => zoomBy(0.8)} className="h-9 w-9 rounded bg-white text-lg font-semibold text-neutral-950" title="Zoom out">
+          <button onClick={() => zoomBy(0.8)} className="h-10 w-10 rounded-lg bg-white text-lg font-semibold text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100" title="Zoom out">
             -
           </button>
-          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={focusSelectedStation} title="Center map">
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100" onClick={focusSelectedStation} title="Center map">
             <DiscIcon />
           </button>
-          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={() => {
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100" onClick={() => {
             tweenRef.current?.restart().pause();
             setPlay(false);
             onActiveStationChange?.(routeStationIds[0] || null);
@@ -1569,12 +1651,12 @@ function SvgComponent({
           }} title="Reset route">
             <ResetIcon />
           </button>
-          <button type="button" className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950" onClick={focusSelectedStation} title="Reset map">
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100" onClick={focusSelectedStation} title="Reset map">
             <UpdateIcon />
           </button>
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-neutral-950 dark:bg-zinc-900 dark:text-zinc-100"
             title="Fullscreen"
             onClick={() => {
               if (!document.fullscreenElement) {
@@ -1588,7 +1670,7 @@ function SvgComponent({
           </button>
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded bg-white text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-900 dark:text-zinc-100"
             title={canExportVideo ? 'Download route video' : 'Video export is not supported in this browser'}
             aria-label="Download route video"
             aria-busy={isExportingVideo}
@@ -1596,7 +1678,7 @@ function SvgComponent({
             onClick={downloadRouteVideo}
           >
             {isExportingVideo ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-950" />
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-950 dark:border-zinc-700 dark:border-t-zinc-100" />
             ) : (
               <VideoIcon />
             )}
@@ -1604,7 +1686,7 @@ function SvgComponent({
           {ENABLE_SHORTS_EXPORT ? (
             <button
               type="button"
-              className="flex h-9 items-center justify-center gap-1 rounded bg-white px-2 text-[11px] font-bold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-10 items-center justify-center gap-1 rounded-lg bg-white px-2 text-xs font-bold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-900 dark:text-zinc-100"
               title={canExportVideo ? 'Generate YouTube Shorts video with Sarvam voiceover' : 'Shorts export is not supported in this browser'}
               aria-label="Generate YouTube Shorts video"
               aria-busy={isExportingShortsVideo}
@@ -1612,7 +1694,7 @@ function SvgComponent({
               onClick={downloadYoutubeShortsVideo}
             >
               {isExportingShortsVideo ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-950" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-950 dark:border-zinc-700 dark:border-t-zinc-100" />
               ) : (
                 <>
                   <VideoIcon />

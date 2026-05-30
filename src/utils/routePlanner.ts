@@ -1,5 +1,5 @@
 import { getLocalizedStationName, type Language } from '../i18n';
-import type { RouteInterchange, RouteStationDetail, RouteSummary } from '../types/route';
+import type { RouteInterchange, RoutePlan, RouteSortMode, RouteStationDetail } from '../types/route';
 import SVGPathUtils from './index';
 
 import rawEdges from '../data/edge.json';
@@ -99,6 +99,63 @@ class WeightedGraph {
     return { path, distance: distances.get(end)! };
   }
 
+  findShortestPaths(start: string, end: string, limit = 3): Array<{ path: string[]; distance: number }> {
+    if (start === end) return [{ path: [start], distance: 0 }];
+    if (!this.nodes.has(start) || !this.nodes.has(end)) return [];
+
+    const routes: Array<{ path: string[]; distance: number }> = [];
+    const seenRoutes = new Set<string>();
+    const queue: Array<{ path: string[]; distance: number }> = [{ path: [start], distance: 0 }];
+    let maxDistance = Infinity;
+
+    while (queue.length && routes.length < limit) {
+      queue.sort((left, right) => left.distance - right.distance || left.path.length - right.path.length);
+      const candidate = queue.shift()!;
+      const currentStationId = candidate.path[candidate.path.length - 1];
+
+      if (candidate.distance > maxDistance) continue;
+
+      if (currentStationId === end) {
+        const routeKey = candidate.path.join('>');
+        if (!seenRoutes.has(routeKey)) {
+          seenRoutes.add(routeKey);
+          routes.push(candidate);
+
+          if (routes.length === 1) {
+            maxDistance = candidate.distance + Math.max(8, Math.ceil(candidate.distance * 0.35));
+          }
+        }
+        continue;
+      }
+
+      const currentNode = this.getNode(currentStationId);
+      if (!currentNode) continue;
+
+      const visitedStations = new Set(candidate.path);
+      const nextStations = [...currentNode.getEdges()]
+        .map(([node, weight]) => ({ stationId: node.value, weight }))
+        .sort((left, right) => left.stationId.localeCompare(right.stationId));
+
+      for (const nextStation of nextStations) {
+        if (visitedStations.has(nextStation.stationId)) continue;
+
+        const nextDistance = candidate.distance + nextStation.weight;
+        if (nextDistance > maxDistance) continue;
+
+        queue.push({
+          path: [...candidate.path, nextStation.stationId],
+          distance: nextDistance,
+        });
+      }
+
+      if (queue.length > 20000) {
+        queue.length = 20000;
+      }
+    }
+
+    return routes;
+  }
+
   private getMinDistanceNode(distances: Map<string, number>, visited: Set<string>): GraphNode | null {
     let minDistance = Infinity;
     let minNode: GraphNode | null = null;
@@ -162,13 +219,17 @@ export const parseRoutePathname = (pathname: string) => {
   return { from: from.id, to: to.id };
 };
 
-export const estimateFare = (stops: number) => {
-  if (stops <= 2) return 10;
-  if (stops <= 5) return 20;
-  if (stops <= 12) return 30;
-  if (stops <= 21) return 40;
-  if (stops <= 32) return 50;
-  return 60;
+const INTERCHANGE_FARE_STOP_ALLOWANCE = 2;
+
+export const estimateFare = (stops: number, interchangeCount = 0) => {
+  const fareStops = stops + (interchangeCount * INTERCHANGE_FARE_STOP_ALLOWANCE);
+
+  if (fareStops <= 2) return 11;
+  if (fareStops <= 5) return 21;
+  if (fareStops <= 12) return 32;
+  if (fareStops <= 21) return 43;
+  if (fareStops <= 32) return 54;
+  return 64;
 };
 
 export const getStationLineColors = (stationId: string) =>
@@ -213,12 +274,14 @@ const getRouteInterchanges = (routePath: string[], language: Language): RouteInt
     }];
   });
 
-export const buildRoute = (from: string, to: string, language: Language): { svgPath: string; route: RouteSummary } | null => {
-  const shortedPath = graph.findShortestPath(from, to);
-
-  if (!shortedPath) return null;
-
-  const routePath = shortedPath.path;
+const buildRoutePlan = (
+  from: string,
+  to: string,
+  language: Language,
+  routePath: string[],
+  distance: number,
+  optionIndex: number
+): RoutePlan => {
   const newPath = routePath
     .map((stationId, index) => {
       if (stationId === to) return '';
@@ -240,20 +303,51 @@ export const buildRoute = (from: string, to: string, language: Language): { svgP
 
   const combinedPath = newPath.reverse().join('');
   const svgPath = SVGPathUtils.inversePath(combinedPath);
+  const interchanges = getRouteInterchanges(routePath, language);
 
   return {
     svgPath,
     route: {
+      optionId: routePath.join('>') || `${from}>${to}>${optionIndex}`,
       from,
       to,
       fromName: stationName(from, language),
       toName: stationName(to, language),
-      stops: shortedPath.path.map((stationId) => stationName(stationId, language)),
-      stationDetails: getRouteStationDetails(shortedPath.path, language),
-      interchanges: getRouteInterchanges(shortedPath.path, language),
-      distance: shortedPath.distance,
-      fare: estimateFare(shortedPath.distance),
-      estimatedMinutes: Math.max(2, shortedPath.distance * 2),
+      stops: routePath.map((stationId) => stationName(stationId, language)),
+      stationDetails: getRouteStationDetails(routePath, language),
+      interchanges,
+      distance,
+      fare: estimateFare(distance, interchanges.length),
+      estimatedMinutes: Math.max(2, distance * 2),
     },
   };
 };
+
+export const buildRoutes = (from: string, to: string, language: Language, limit = 3): RoutePlan[] => {
+  const routePaths = limit <= 1
+    ? [graph.findShortestPath(from, to)].filter((routePath): routePath is { path: string[]; distance: number } => Boolean(routePath))
+    : graph.findShortestPaths(from, to, limit);
+
+  return routePaths.map((routePath, index) =>
+    buildRoutePlan(from, to, language, routePath.path, routePath.distance, index)
+  );
+};
+
+export const buildRoute = (from: string, to: string, language: Language): RoutePlan | null => {
+  const [route] = buildRoutes(from, to, language, 1);
+
+  return route || null;
+};
+
+export const sortRoutePlans = (routePlans: RoutePlan[], sortMode: RouteSortMode = 'interchanges') =>
+  [...routePlans].sort((left, right) => {
+    if (sortMode === 'stops') {
+      return left.route.distance - right.route.distance
+        || left.route.interchanges.length - right.route.interchanges.length
+        || left.route.estimatedMinutes - right.route.estimatedMinutes;
+    }
+
+    return left.route.interchanges.length - right.route.interchanges.length
+      || left.route.distance - right.route.distance
+      || left.route.estimatedMinutes - right.route.estimatedMinutes;
+  });

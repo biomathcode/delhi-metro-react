@@ -10,6 +10,11 @@ type TranslationKey =
   | 'hindi'
   | 'marathi'
   | 'bengali'
+  | 'theme'
+  | 'switchToLightTheme'
+  | 'switchToDarkTheme'
+  | 'lightTheme'
+  | 'darkTheme'
   | 'fromStation'
   | 'toStation'
   | 'planJourney'
@@ -23,6 +28,16 @@ type TranslationKey =
   | 'swapStations'
   | 'chooseRoute'
   | 'routeTitle'
+  | 'routeOptions'
+  | 'routeOption'
+  | 'recommended'
+  | 'directRoute'
+  | 'viaStation'
+  | 'moreInterchanges'
+  | 'sortRoutes'
+  | 'sortByInterchanges'
+  | 'sortByStops'
+  | 'playRoute'
   | 'routePlanner'
   | 'delhiMetro'
   | 'fare'
@@ -72,6 +87,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     hindi: 'Hindi',
     marathi: 'Marathi',
     bengali: 'Bengali',
+    theme: 'Theme',
+    switchToLightTheme: 'Switch to light theme',
+    switchToDarkTheme: 'Switch to dark theme',
+    lightTheme: 'Light theme',
+    darkTheme: 'Dark theme',
     fromStation: 'From station',
     toStation: 'To station',
     planJourney: 'Plan journey',
@@ -85,6 +105,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     swapStations: 'Swap stations',
     chooseRoute: 'Choose a route',
     routeTitle: '{{from}} to {{to}}',
+    routeOptions: 'Route options',
+    routeOption: 'Route {{count}}',
+    recommended: 'Recommended',
+    directRoute: 'Direct',
+    viaStation: 'Via {{station}}',
+    moreInterchanges: '+{{count}} more',
+    sortRoutes: 'Sort routes',
+    sortByInterchanges: 'Fewest changes',
+    sortByStops: 'Fewest stops',
+    playRoute: 'Play route',
     routePlanner: 'Route planner',
     delhiMetro: 'Delhi Metro',
     fare: 'Fare',
@@ -131,6 +161,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     hindi: 'हिंदी',
     marathi: 'मराठी',
     bengali: 'बंगाली',
+    theme: 'थीम',
+    switchToLightTheme: 'लाइट थीम पर जाएं',
+    switchToDarkTheme: 'डार्क थीम पर जाएं',
+    lightTheme: 'लाइट थीम',
+    darkTheme: 'डार्क थीम',
     fromStation: 'प्रस्थान स्टेशन',
     toStation: 'गंतव्य स्टेशन',
     planJourney: 'यात्रा योजना',
@@ -144,6 +179,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     swapStations: 'स्टेशन बदलें',
     chooseRoute: 'रूट चुनें',
     routeTitle: '{{from}} से {{to}}',
+    routeOptions: 'रूट विकल्प',
+    routeOption: 'रूट {{count}}',
+    recommended: 'सुझाया गया',
+    directRoute: 'सीधा',
+    viaStation: '{{station}} के जरिए',
+    moreInterchanges: '+{{count}} और',
+    sortRoutes: 'रूट क्रमबद्ध करें',
+    sortByInterchanges: 'सबसे कम बदलाव',
+    sortByStops: 'सबसे कम स्टॉप',
+    playRoute: 'रूट चलाएं',
     routePlanner: 'रूट प्लानर',
     delhiMetro: 'दिल्ली मेट्रो',
     fare: 'किराया',
@@ -190,6 +235,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     hindi: 'हिंदी',
     marathi: 'मराठी',
     bengali: 'बंगाली',
+    theme: 'थीम',
+    switchToLightTheme: 'लाइट थीमवर जा',
+    switchToDarkTheme: 'डार्क थीमवर जा',
+    lightTheme: 'लाइट थीम',
+    darkTheme: 'डार्क थीम',
     fromStation: 'प्रस्थान स्थानक',
     toStation: 'गंतव्य स्थानक',
     planJourney: 'प्रवास नियोजित करा',
@@ -203,6 +253,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     swapStations: 'स्थानके बदला',
     chooseRoute: 'मार्ग निवडा',
     routeTitle: '{{from}} ते {{to}}',
+    routeOptions: 'मार्ग पर्याय',
+    routeOption: 'मार्ग {{count}}',
+    recommended: 'शिफारस केलेला',
+    directRoute: 'थेट',
+    viaStation: '{{station}} मार्गे',
+    moreInterchanges: '+{{count}} अधिक',
+    sortRoutes: 'मार्ग क्रमवारी',
+    sortByInterchanges: 'कमी बदल',
+    sortByStops: 'कमी थांबे',
+    playRoute: 'मार्ग प्ले करा',
     routePlanner: 'मार्ग नियोजक',
     delhiMetro: 'दिल्ली मेट्रो',
     fare: 'भाडे',
@@ -249,6 +309,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     hindi: 'হিন্দি',
     marathi: 'মারাঠি',
     bengali: 'বাংলা',
+    theme: 'থিম',
+    switchToLightTheme: 'লাইট থিমে যান',
+    switchToDarkTheme: 'ডার্ক থিমে যান',
+    lightTheme: 'লাইট থিম',
+    darkTheme: 'ডার্ক থিম',
     fromStation: 'যাত্রার স্টেশন',
     toStation: 'গন্তব্য স্টেশন',
     planJourney: 'যাত্রা পরিকল্পনা করুন',
@@ -262,6 +327,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     swapStations: 'স্টেশন বদলান',
     chooseRoute: 'রুট বেছে নিন',
     routeTitle: '{{from}} থেকে {{to}}',
+    routeOptions: 'রুট বিকল্প',
+    routeOption: 'রুট {{count}}',
+    recommended: 'প্রস্তাবিত',
+    directRoute: 'সরাসরি',
+    viaStation: '{{station}} হয়ে',
+    moreInterchanges: '+{{count}} আরও',
+    sortRoutes: 'রুট সাজান',
+    sortByInterchanges: 'সবচেয়ে কম পরিবর্তন',
+    sortByStops: 'সবচেয়ে কম স্টপ',
+    playRoute: 'রুট চালান',
     routePlanner: 'রুট প্ল্যানার',
     delhiMetro: 'দিল্লি মেট্রো',
     fare: 'ভাড়া',

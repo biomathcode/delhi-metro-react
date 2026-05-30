@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 
-import type { RouteSummary } from '../types/route';
+import type { RoutePlan, RouteSummary } from '../types/route';
 import { isStationId, parseRoutePathname, stations } from '../utils/routePlanner';
 
 declare global {
@@ -60,10 +60,15 @@ export const usePath = create((set: any) => {
   return {
     path: '',
     route: null,
+    routeOptions: [],
     selectedFrom: initialRouteParams.from,
     setSelectedFrom: (stationId: string) => set(() => ({ selectedFrom: stationId })),
-    setRoute: (newPath: string, route: RouteSummary) =>
-      set(() => ({ path: newPath, route })),
+    setRoute: (newPath: string, route: RouteSummary, routeOptions?: RoutePlan[]) =>
+      set(() => ({
+        path: newPath,
+        route,
+        routeOptions: routeOptions?.length ? routeOptions : [{ svgPath: newPath, route }],
+      })),
     setPath: (newPath: string) => set(() => ({ path: newPath })),
     setInverse: (newPath: string) => set(() => ({ path: newPath })),
   };

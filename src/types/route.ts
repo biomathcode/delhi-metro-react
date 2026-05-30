@@ -1,4 +1,5 @@
 export interface RouteSummary {
+  optionId: string;
   from: string;
   to: string;
   fromName: string;
@@ -10,6 +11,13 @@ export interface RouteSummary {
   fare: number;
   estimatedMinutes: number;
 }
+
+export interface RoutePlan {
+  svgPath: string;
+  route: RouteSummary;
+}
+
+export type RouteSortMode = 'interchanges' | 'stops';
 
 export interface RouteStationDetail {
   id: string;

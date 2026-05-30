@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { PlayIcon } from '@radix-ui/react-icons';
+import { MoonIcon, PlayIcon, SunIcon } from '@radix-ui/react-icons';
 import { useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import Select, { type SingleValue, type StylesConfig } from 'react-select';
 
 import { availableLanguages, getLocalizedStationName, useI18n, type Language } from '../i18n';
 import { getInitialRouteParams, usePath } from '../store/pathStore';
+import { useTheme, type Theme } from '../theme';
 import type { CinematicZoomLevel, RouteAnimationMode } from '../types/route';
-import { buildRoute, getStationLineColors, stations } from '../utils/routePlanner';
+import { buildRoutes, getStationLineColors, sortRoutePlans, stations } from '../utils/routePlanner';
 
 interface StationOption {
   label: string;
@@ -32,43 +33,57 @@ const getStationOptions = (language: Language): StationOption[] => stations.map(
   lineColors: getStationLineColors(station.id),
 }));
 
-const selectStyles: StylesConfig<StationOption, false> = {
-  control: (base, state) => ({
-    ...base,
-    minHeight: 'var(--station-select-height)',
-    borderRadius: 999,
-    backgroundColor: 'white',
-    boxShadow: state.isFocused ? '0 0 0 4px rgba(0,0,0,0.04)' : 'none',
-    paddingLeft: 'var(--station-select-x-padding)',
-    paddingRight: 6,
-    border: '1px solid',
-    borderColor: state.isFocused ? '#111827' : '#e5e7eb',
-    cursor: 'pointer',
-  }),
-  valueContainer: (base) => ({
-    ...base,
-    padding: 0,
-  }),
-  placeholder: (base) => ({
-    ...base,
-    color: '#737373',
-    fontWeight: 500,
-  }),
-  indicatorsContainer: (base) => ({
-    ...base,
-    display: 'none',
-  }),
-  menu: (base) => ({
-    ...base,
-    borderRadius: 16,
-    overflow: 'hidden',
-    zIndex: 30,
-  }),
-  option: (base, state) => ({
-    ...base,
-    backgroundColor: state.isFocused ? '#f5f5f5' : 'white',
-    color: '#111',
-  }),
+const createSelectStyles = (theme: Theme): StylesConfig<StationOption, false> => {
+  const isDark = theme === 'dark';
+
+  return {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 'var(--station-select-height)',
+      borderRadius: 999,
+      backgroundColor: isDark ? '#18181b' : 'white',
+      boxShadow: state.isFocused ? `0 0 0 4px ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'}` : 'none',
+      paddingLeft: 'var(--station-select-x-padding)',
+      paddingRight: 6,
+      border: '1px solid',
+      borderColor: state.isFocused ? (isDark ? '#f4f4f5' : '#111827') : (isDark ? '#3f3f46' : '#e5e7eb'),
+      cursor: 'pointer',
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: isDark ? '#fafafa' : '#111827',
+    }),
+    input: (base) => ({
+      ...base,
+      color: isDark ? '#fafafa' : '#111827',
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: 0,
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: isDark ? '#a1a1aa' : '#737373',
+      fontWeight: 500,
+    }),
+    indicatorsContainer: (base) => ({
+      ...base,
+      display: 'none',
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 8,
+      overflow: 'hidden',
+      zIndex: 30,
+      backgroundColor: isDark ? '#18181b' : 'white',
+      border: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused ? (isDark ? '#27272a' : '#f5f5f5') : (isDark ? '#18181b' : 'white'),
+      color: isDark ? '#fafafa' : '#111',
+    }),
+  };
 };
 
 function ToggleIcon() {
@@ -88,7 +103,7 @@ function ToggleIcon() {
 function StationOptionLabel({ option }: { option: StationOption }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="truncate text-base font-medium sm:text-lg">{option.label}</span>
+      <span className="truncate text-base font-medium">{option.label}</span>
     </div>
   );
 }
@@ -111,9 +126,10 @@ export function SearchBox({
   onAnimationModeChange?: (mode: RouteAnimationMode) => void;
   onCinematicZoomChange?: (zoom: CinematicZoomLevel) => void;
   onFromChange?: () => void;
-  onRoutePlan?: () => void;
+  onRoutePlan?: (plannedRoute?: ReturnType<typeof buildRoutes>[number]) => void;
 }) {
   const { language, setLanguage, t } = useI18n();
+  const { theme, toggleTheme } = useTheme();
   const initialRouteParams = useMemo(() => getInitialRouteParams(), []);
   const { control, getValues, handleSubmit, setValue } = useForm({
     defaultValues: {
@@ -125,18 +141,20 @@ export function SearchBox({
   const setSelectedFrom = usePath((state: any) => state.setSelectedFrom);
   const hydratedRouteRef = useRef(false);
   const stationOptions = useMemo(() => getStationOptions(language), [language]);
+  const selectStyles = useMemo(() => createSelectStyles(theme), [theme]);
 
   useEffect(() => {
     if (hydratedRouteRef.current || !initialRouteParams.hasRouteQuery) return;
     hydratedRouteRef.current = true;
 
-    const plannedRoute = buildRoute(initialRouteParams.from, initialRouteParams.to, language);
+    const plannedRoutes = sortRoutePlans(buildRoutes(initialRouteParams.from, initialRouteParams.to, language), 'interchanges');
+    const plannedRoute = plannedRoutes[0];
     if (!plannedRoute) return;
 
     const animationFrame = requestAnimationFrame(() => {
       setSelectedFrom(initialRouteParams.from);
-      setRoute(plannedRoute.svgPath, plannedRoute.route);
-      onRoutePlan?.();
+      setRoute(plannedRoute.svgPath, plannedRoute.route, plannedRoutes);
+      onRoutePlan?.(plannedRoute);
     });
 
     return () => cancelAnimationFrame(animationFrame);
@@ -161,12 +179,13 @@ export function SearchBox({
       onSubmit={handleSubmit((e) => {
         if (!e.from || !e.to) return;
 
-        const plannedRoute = buildRoute(e.from, e.to, language);
+        const plannedRoutes = sortRoutePlans(buildRoutes(e.from, e.to, language), 'interchanges');
+        const plannedRoute = plannedRoutes[0];
         if (!plannedRoute) return;
 
-        setRoute(plannedRoute.svgPath, plannedRoute.route);
+        setRoute(plannedRoute.svgPath, plannedRoute.route, plannedRoutes);
         updateRouteUrl(e.from, e.to);
-        onRoutePlan?.();
+        onRoutePlan?.(plannedRoute);
       })}
       className='grid gap-3 [--station-select-height:48px] [--station-select-x-padding:12px] sm:gap-4 sm:[--station-select-height:58px] sm:[--station-select-x-padding:14px]'
     >
@@ -269,11 +288,11 @@ export function SearchBox({
           aria-label={t('swapFromAndToStations')}
           onClick={swapStations}
           title={t('swapStations')}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white transition hover:border-neutral-300 hover:bg-neutral-50 sm:h-12 sm:w-12"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-12 sm:w-12"
         >
           <ToggleIcon />
         </button>
-        <label className="inline-flex h-11 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 sm:h-12">
+        <label className="inline-flex h-11 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 sm:h-12">
           <span className="sr-only">{t('language')}</span>
           <select
             value={language}
@@ -294,6 +313,17 @@ export function SearchBox({
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={theme === 'dark'}
+          aria-label={theme === 'dark' ? t('switchToLightTheme') : t('switchToDarkTheme')}
+          title={theme === 'dark' ? t('darkTheme') : t('lightTheme')}
+          onClick={toggleTheme}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-800 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-12 sm:w-12"
+        >
+          {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
+        </button>
       </div>
     </form>
   );

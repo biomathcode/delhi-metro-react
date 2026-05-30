@@ -32,6 +32,7 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
     ({ style, mapGroupRef, zoomFunction, train }: MapProps, ref) => (
         <svg
             xmlns='http://www.w3.org/2000/svg'
+            className="metro-map"
             // style={{
             //   width: '100%',
             //   height: '100%',

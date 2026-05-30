@@ -20,14 +20,14 @@ function CreatorLinks() {
     };
 
     return (
-        <section className="grid gap-2 border-t border-neutral-200 pt-3 sm:pt-4" aria-label={t('creatorLinks')}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{t('createdBy')}</p>
+        <section className="grid gap-2 border-t border-neutral-200 pt-3 dark:border-zinc-700 sm:pt-4" aria-label={t('creatorLinks')}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-zinc-400">{t('createdBy')}</p>
             <div className="flex flex-wrap items-center gap-2">
                 <a
                     href={LINKEDIN_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                 >
                     <LinkedInLogoIcon />
                     {t('linkedin')}
@@ -36,7 +36,7 @@ function CreatorLinks() {
                     href={GITHUB_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                 >
                     <GitHubLogoIcon />
                     {t('github')}
@@ -45,7 +45,7 @@ function CreatorLinks() {
                     href={YOUTUBE_URL}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                 >
                     <PlayIcon />
                     {t('youtube')}
@@ -54,7 +54,7 @@ function CreatorLinks() {
                     type="button"
                     onClick={copySupportEmail}
                     title={SUPPORT_EMAIL}
-                    className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                 >
                     {copied ? <CheckIcon /> : <ClipboardCopyIcon />}
                     {copied ? t('supportEmailCopied') : t('copySupportEmail')}
