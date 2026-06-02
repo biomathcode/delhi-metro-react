@@ -14,7 +14,7 @@ import * as React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import edges from '../data/edge.json';
-import stationLabels from '../data/labels.json';
+import stationLabels from '../data/stations-lite.json';
 import MetroTrain from '../assets/metro.svg?react';
 import Map, { type MapControls, type MapTransform } from './metromap';
 import { getLocalizedStationName, useI18n } from '../i18n';
@@ -630,6 +630,7 @@ function SvgComponent({
   selectedStationId,
   routeStationIds,
   onActiveStationChange,
+  onStationClick,
   animationMode,
   cinematicZoom,
   routeFitRequest,
@@ -642,6 +643,7 @@ function SvgComponent({
   selectedStationId: string;
   routeStationIds: string[];
   onActiveStationChange?: (stationId: string | null) => void;
+  onStationClick?: (stationId: string) => void;
   animationMode: RouteAnimationMode;
   cinematicZoom: CinematicZoomLevel;
   routeFitRequest?: number;
@@ -697,6 +699,7 @@ function SvgComponent({
 
       label.dataset.stationId = station.id;
       label.dataset.stationName = station.text;
+      label.style.cursor = 'pointer';
 
       const localizedName = getLocalizedStationName(station.id, station.text, language);
       const tspans = Array.from(label.querySelectorAll('tspan'));
@@ -1094,6 +1097,41 @@ function SvgComponent({
   };
 
   const selectedStationPoint = stationCoordinates[selectedStationId];
+
+  const handleMapClick = React.useCallback((event: React.MouseEvent<SVGSVGElement>) => {
+    const target = event.target as Element | null;
+    const stationLabel = target?.closest('text[data-station-id]') as SVGTextElement | null;
+    const stationId = stationLabel?.dataset.stationId;
+
+    if (stationId) {
+      event.stopPropagation();
+      onStationClick?.(stationId);
+      return;
+    }
+
+    const svg = svgRef.current;
+    const mapGroup = mapGroupRef.current;
+    const inverseMatrix = mapGroup?.getScreenCTM()?.inverse();
+    if (!svg || !inverseMatrix) return;
+
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const mapPoint = point.matrixTransform(inverseMatrix);
+    const closestStation = Object.entries(stationCoordinates).reduce<{
+      stationId: string;
+      distance: number;
+    } | null>((closest, [candidateStationId, coordinate]) => {
+      const distance = Math.hypot(coordinate.x - mapPoint.x, coordinate.y - mapPoint.y);
+      if (distance > 14 || (closest && closest.distance <= distance)) return closest;
+      return { stationId: candidateStationId, distance };
+    }, null);
+
+    if (!closestStation) return;
+
+    event.stopPropagation();
+    onStationClick?.(closestStation.stationId);
+  }, [onStationClick]);
 
   const drawSvgToCanvas = React.useCallback(async (
     canvas: HTMLCanvasElement | OffscreenCanvas,
@@ -1651,6 +1689,7 @@ function SvgComponent({
           </>
         }
         ref={svgRef}
+        onMapClick={handleMapClick}
         zoomFunction={mapControls}
       />
 

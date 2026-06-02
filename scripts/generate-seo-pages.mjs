@@ -7,6 +7,7 @@ const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const indexPath = path.join(distDir, 'index.html');
 const baseUrl = (process.env.SITE_URL || 'https://metro.coolhead.in').replace(/\/$/, '');
+const showcaseImagePath = '/images/showcase-1200x630.png';
 const sitemapUrlLimit = 45000;
 const today = new Date().toISOString().slice(0, 10);
 
@@ -198,11 +199,70 @@ const writePage = async (pathname, html) => {
   await writeFile(path.join(outputDir, 'index.html'), html);
 };
 
+const hasItems = (items) => Array.isArray(items) && items.length > 0;
+const renderList = (items, renderItem) => hasItems(items) ? `<ul>${items.map(renderItem).join('')}</ul>` : '<p>Not listed.</p>';
+const renderStationGates = (station) => renderList(station.gates, (gate) => `
+  <li>
+    <strong>${escapeHtml(gate.gate || 'Gate')}</strong>
+    ${gate.access ? ` (${escapeHtml(gate.access)})` : ''}
+    ${gate.towards ? ` - ${escapeHtml(gate.towards)}` : ''}
+    ${gate.status ? ` - ${escapeHtml(gate.status)}` : ''}
+    ${gate.divyangFriendly ? ' - Divyang friendly' : ''}
+  </li>`);
+const renderStationPlatforms = (station) => renderList(station.platforms, (platform) => `
+  <li>
+    <strong>${escapeHtml(platform.name || 'Platform')}</strong>
+    ${platform.towards ? ` - Towards ${escapeHtml(platform.towards)}` : ''}
+    ${platform.secondTowards ? ` / ${escapeHtml(platform.secondTowards)}` : ''}
+  </li>`);
+const renderStationFacilities = (station) => {
+  const facilityGroups = hasItems(station.facilities)
+    ? station.facilities.map((group) => `
+      <li>
+        <strong>${escapeHtml(group.kind)}</strong>
+        ${renderList(group.details, (detail) => `
+          <li>
+            ${escapeHtml(detail.name || detail.purpose || group.kind)}
+            ${detail.location ? ` - ${escapeHtml(detail.location)}` : ''}
+            ${detail.nearestGate ? ` - ${escapeHtml(detail.nearestGate)}` : ''}
+          </li>`)}
+      </li>`).join('')
+    : '';
+  const stationFacilities = hasItems(station.stationFacilities)
+    ? `<p>${station.stationFacilities.map(escapeHtml).join(', ')}</p>`
+    : '';
+
+  return stationFacilities || facilityGroups ? `${stationFacilities}<ul>${facilityGroups}</ul>` : '<p>Not listed.</p>';
+};
+const renderStationParking = (station) => renderList(station.parking, (parking) => `
+  <li>
+    <strong>${escapeHtml(parking.provider || 'Parking')}</strong>
+    ${parking.location ? ` - ${escapeHtml(parking.location)}` : ''}
+    ${typeof parking.carCapacity === 'number' ? ` - Cars: ${parking.carCapacity}` : ''}
+    ${typeof parking.motorcycleCapacity === 'number' ? ` - Bikes: ${parking.motorcycleCapacity}` : ''}
+    ${typeof parking.cycleCapacity === 'number' ? ` - Cycles: ${parking.cycleCapacity}` : ''}
+  </li>`);
+const renderStationNearbyPlaces = (station) => renderList((station.nearbyPlaces || []).slice(0, 16), (place) => `
+  <li>
+    <strong>${escapeHtml(place.name || 'Nearby place')}</strong>
+    ${place.type ? ` - ${escapeHtml(place.type)}` : ''}
+    ${place.category ? ` - ${escapeHtml(place.category)}` : ''}
+    ${typeof place.distanceKm === 'number' ? ` - ${place.distanceKm} km` : ''}
+    ${typeof place.estimatedWalkingMinutes === 'number' ? ` - ${place.estimatedWalkingMinutes} min walk` : ''}
+  </li>`);
+const renderStationLifts = (station) => renderList(station.lifts, (lift) => `
+  <li>
+    <strong>${escapeHtml(lift.name || lift.type || 'Lift / Escalator')}</strong>
+    ${lift.location ? ` - ${escapeHtml(lift.location)}` : ''}
+    ${lift.insideOutside ? ` - ${escapeHtml(lift.insideOutside)}` : ''}
+    ${lift.divyangFriendly ? ' - Divyang friendly' : ''}
+  </li>`);
+
 const stationPage = (station) => {
   const pathname = stationPathname(station.id);
   const title = `${station.text} Metro Station | Delhi Metro`;
-  const description = `Plan routes from ${station.text} metro station. Check Delhi Metro fare, travel time, stops, connected stations, and interchanges.`;
-  const keywords = `${station.text} metro station, ${station.text} Delhi Metro route, metro from ${station.text}, Delhi Metro fare from ${station.text}`;
+  const description = `Check ${station.text} metro station gates, platforms, facilities, nearby places, parking, route links, fare planning, and Delhi Metro travel details.`;
+  const keywords = `${station.text} metro station, ${station.text} gates, ${station.text} facilities, ${station.text} Delhi Metro route, metro from ${station.text}, Delhi Metro fare from ${station.text}`;
   const connectedStationIds = [...new Set(adjacency.get(station.id) || [])];
   const connectedStations = connectedStationIds.map(stationName);
   const routeLinkIds = [...new Set([
@@ -214,15 +274,30 @@ const stationPage = (station) => {
   const body = `
     <main class="seo-prerender">
       <h1>${escapeHtml(station.text)} Metro Station</h1>
-      <img src="/images/showcase.png" alt="Delhi Metro route planner map for ${escapeHtml(station.text)} station" width="1200" height="630" loading="lazy" />
+      <img src="${showcaseImagePath}" alt="Delhi Metro route planner map for ${escapeHtml(station.text)} station" width="1200" height="630" loading="lazy" />
       <p>${escapeHtml(description)}</p>
+      <dl>
+        <dt>Station code</dt><dd>${escapeHtml(station.id)}</dd>
+        <dt>Layout</dt><dd>${escapeHtml(station.layout || 'Not listed')}</dd>
+        <dt>Interchange</dt><dd>${station.interchange ? 'Yes' : 'No'}</dd>
+        <dt>Mobile</dt><dd>${escapeHtml(station.contact?.mobile || 'Not listed')}</dd>
+        <dt>Landline</dt><dd>${escapeHtml(station.contact?.landline || 'Not listed')}</dd>
+      </dl>
       <p>
-        ${escapeHtml(station.text)} Metro Station is part of the Delhi Metro network and can be used as a starting point
-        or destination in the route planner. Use this page to plan trips from ${escapeHtml(station.text)} to major Delhi
-        NCR metro stations, compare estimated travel time, check the approximate fare, and understand where an
-        interchange may be required. The interactive planner opens with station search, route details, stop count, and
-        line-color guidance so commuters can quickly prepare for daily travel.
+        ${escapeHtml(station.description || `${station.text} Metro Station is part of the Delhi Metro network and can be used as a starting point or destination in the route planner.`)}
       </p>
+      <h2>Gates at ${escapeHtml(station.text)}</h2>
+      ${renderStationGates(station)}
+      <h2>Platforms</h2>
+      ${renderStationPlatforms(station)}
+      <h2>Facilities</h2>
+      ${renderStationFacilities(station)}
+      <h2>Parking</h2>
+      ${renderStationParking(station)}
+      <h2>Lifts and escalators</h2>
+      ${renderStationLifts(station)}
+      <h2>Nearby places</h2>
+      ${renderStationNearbyPlaces(station)}
       <h2>Routes from ${escapeHtml(station.text)}</h2>
       <p>
         Popular route pages from this station:
@@ -259,6 +334,12 @@ const stationPage = (station) => {
     name: `${station.text} Metro Station`,
     url: `${baseUrl}${pathname}`,
     containedInPlace: 'Delhi Metro',
+    description: station.description || description,
+    geo: isValidCoordinatePair(station) ? {
+      '@type': 'GeoCoordinates',
+      latitude: station.Latitude,
+      longitude: station.Longitude,
+    } : undefined,
   };
 
   return { pathname, html: renderHtml({ title, description, keywords, canonicalPath: pathname, body, schema }) };
@@ -276,7 +357,7 @@ const routePage = (route) => {
   const body = `
     <main class="seo-prerender">
       <h1>${escapeHtml(route.fromName)} to ${escapeHtml(route.toName)} Metro Route</h1>
-      <img src="/images/showcase.png" alt="Delhi Metro route planner for ${escapeHtml(route.fromName)} to ${escapeHtml(route.toName)}" width="1200" height="630" loading="lazy" />
+      <img src="${showcaseImagePath}" alt="Delhi Metro route planner for ${escapeHtml(route.fromName)} to ${escapeHtml(route.toName)}" width="1200" height="630" loading="lazy" />
       <p>${escapeHtml(description)}</p>
       <dl>
         <dt>Fare</dt><dd>Rs ${route.fare}</dd>

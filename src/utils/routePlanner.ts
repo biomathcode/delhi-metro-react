@@ -1,18 +1,12 @@
 import { getLocalizedStationName, type Language } from '../i18n';
 import type { RouteInterchange, RoutePlan, RouteSortMode, RouteStationDetail } from '../types/route';
+import type { StationInfo } from '../types/station';
 import SVGPathUtils from './index';
 
 import rawEdges from '../data/edge.json';
-import rawStations from '../data/labels.json';
+import rawStations from '../data/stations-lite.json';
 
-type Station = {
-  id: string;
-  text: string;
-  Latitude?: number | '';
-  Longitude?: number | '';
-};
-
-type StationWithCoordinates = Station & {
+type StationWithCoordinates = StationInfo & {
   Latitude: number;
   Longitude: number;
 };
@@ -24,7 +18,7 @@ type MetroEdge = {
   path: string;
 };
 
-export const stations = (rawStations as Station[]).filter((station) => station.id && station.text);
+export const stations = (rawStations as StationInfo[]).filter((station) => station.id && station.text);
 export const edges = rawEdges as MetroEdge[];
 const AIRPORT_LINE_COLOR = '#eb8923';
 const AIRPORT_LINE_STATIONS = ['NDI', 'SJSU', 'DKV', 'DACY', 'APOT', 'DSTO', 'IICC'] as const;
@@ -225,7 +219,7 @@ const stationById = new Map(stations.map((station) => [station.id, station]));
 
 const toRadians = (degrees: number) => degrees * (Math.PI / 180);
 
-const isValidCoordinatePair = (station: Station | undefined): station is StationWithCoordinates =>
+const isValidCoordinatePair = (station: StationInfo | undefined): station is StationWithCoordinates =>
   typeof station?.Latitude === 'number' &&
   typeof station?.Longitude === 'number' &&
   station.Latitude >= 27.5 &&

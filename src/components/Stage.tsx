@@ -1,20 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PauseIcon, PlayIcon } from '@radix-ui/react-icons';
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Drawer } from 'vaul';
 
 import { getLocalizedStationName, useI18n } from '../i18n';
+import { InterchangeIcon, StopsIcon } from '../icons';
 import { usePath } from '../store/pathStore';
-import type { CinematicZoomLevel, RoutePlan, RouteSortMode } from '../types/route';
+import { usePlannerUi } from '../store/plannerUiStore';
+import type { RoutePlan, RouteSortMode } from '../types/route';
 import { sortRoutePlans } from '../utils/routePlanner';
+import { createLazyComponent } from '../utils/lazyComponent';
 import CreatorLinks from './CreatorLinks';
 import JourneyInfoPanel from './JourneyInfoPanel';
-import { InterchangeIcon, StopsIcon } from '../icons';
+import { LazyBoundary } from './LazyComponent';
 
-const SvgComponent = lazy(() => import('./graphsvg'));
-const SearchBox = lazy(() => import('./SearchBox'));
-const RouteSharePanel = lazy(() => import('./RouteSharePanel'));
-const JourneyTimeline = lazy(() => import('./JourneyTimeline'));
+const SvgComponent = createLazyComponent(() => import('./graphsvg'));
+const SearchBox = createLazyComponent(() => import('./SearchBox'));
+const RouteSharePanel = createLazyComponent(() => import('./RouteSharePanel'));
+const JourneyTimeline = createLazyComponent(() => import('./JourneyTimeline'));
+const StationInfoDrawer = createLazyComponent(() => import('./StationInfoDrawer'));
 const SEARCH_SNAP_POINT = 0.86;
 
 type NavigatorWithVirtualKeyboard = Navigator & {
@@ -270,17 +274,29 @@ function RouteOptions({
 
 function MetroMapStage() {
     const { language, t } = useI18n();
-    const [play, setPlay] = useState(false);
-    const [animationMode, setAnimationMode] = useState<'smooth' | 'step'>('smooth');
-    const [cinematicZoom, setCinematicZoom] = useState<CinematicZoomLevel>(2);
-    const [activeSnapPoint, setActiveSnapPoint] = useState<number | string | null>('220px');
-    const [activeRouteStationId, setActiveRouteStationId] = useState<string | null>(null);
-    const [routeFitRequest, setRouteFitRequest] = useState(0);
-    const [routePreviewMode, setRoutePreviewMode] = useState(false);
-    const [routeSortMode, setRouteSortMode] = useState<RouteSortMode>('interchanges');
     const bottomSheetScrollRef = useRef<HTMLDivElement | null>(null);
     const isDesktop = useIsDesktop();
     const canLoadInteractiveMap = useDeferredInteractiveLoad();
+
+    const play = usePlannerUi((state) => state.play);
+    const animationMode = usePlannerUi((state) => state.animationMode);
+    const cinematicZoom = usePlannerUi((state) => state.cinematicZoom);
+    const activeSnapPoint = usePlannerUi((state) => state.activeSnapPoint);
+    const activeRouteStationId = usePlannerUi((state) => state.activeRouteStationId);
+    const selectedStationInfoId = usePlannerUi((state) => state.selectedStationInfoId);
+    const routeFitRequest = usePlannerUi((state) => state.routeFitRequest);
+    const routePreviewMode = usePlannerUi((state) => state.routePreviewMode);
+    const routeSortMode = usePlannerUi((state) => state.routeSortMode);
+    const setPlay = usePlannerUi((state) => state.setPlay);
+    const setAnimationMode = usePlannerUi((state) => state.setAnimationMode);
+    const setCinematicZoom = usePlannerUi((state) => state.setCinematicZoom);
+    const setActiveSnapPoint = usePlannerUi((state) => state.setActiveSnapPoint);
+    const setActiveRouteStationId = usePlannerUi((state) => state.setActiveRouteStationId);
+    const setSelectedStationInfoId = usePlannerUi((state) => state.setSelectedStationInfoId);
+    const setRoutePreviewMode = usePlannerUi((state) => state.setRoutePreviewMode);
+    const setRouteSortMode = usePlannerUi((state) => state.setRouteSortMode);
+    const requestRouteFit = usePlannerUi((state) => state.requestRouteFit);
+    const clearRouteFocus = usePlannerUi((state) => state.clearRouteFocus);
 
     const path = usePath((state: any) => state.path);
     const route = usePath((state: any) => state.route);
@@ -299,7 +315,7 @@ function MetroMapStage() {
     const routeFromName = route ? getLocalizedStationName(route.from, route.fromName, language) : '';
     const routeToName = route ? getLocalizedStationName(route.to, route.toName, language) : '';
 
-    const handleFromChange = useCallback(() => setPlay(false), []);
+    const handleFromChange = useCallback(() => setPlay(false), [setPlay]);
     const handleStationSearchFocus = useCallback(() => {
         if (isDesktop) return;
 
@@ -312,10 +328,11 @@ function MetroMapStage() {
         resetScroll();
         requestAnimationFrame(resetScroll);
         window.setTimeout(resetScroll, 180);
-    }, [isDesktop]);
+    }, [isDesktop, setActiveSnapPoint]);
     const handleRoutePlan = useCallback((plannedRoute?: RoutePlan) => {
         setActiveSnapPoint('100px');
         setRoutePreviewMode(false);
+        setSelectedStationInfoId(null);
         setPlay((currentPlay) => {
             if (route && plannedRoute?.route.optionId === route.optionId) {
                 return !currentPlay;
@@ -323,23 +340,23 @@ function MetroMapStage() {
 
             return true;
         });
-    }, [route]);
+    }, [route, setActiveSnapPoint, setPlay, setRoutePreviewMode, setSelectedStationInfoId]);
     const handleRouteOptionSelect = useCallback((routeOption: RoutePlan) => {
         setRoute(routeOption.svgPath, routeOption.route, routeOptions);
-        setActiveRouteStationId(null);
+        clearRouteFocus();
         setRoutePreviewMode(true);
         setPlay(false);
-        setRouteFitRequest((request) => request + 1);
-    }, [routeOptions, setRoute]);
+        requestRouteFit();
+    }, [clearRouteFocus, requestRouteFit, routeOptions, setPlay, setRoute, setRoutePreviewMode]);
     const handleRouteOptionPlay = useCallback((routeOption: RoutePlan) => {
         const isActiveRoute = routeOption.route.optionId === route?.optionId;
         if (!isActiveRoute) {
             setRoute(routeOption.svgPath, routeOption.route, routeOptions);
         }
-        setActiveRouteStationId(null);
+        clearRouteFocus();
         setRoutePreviewMode(false);
         setPlay((currentPlay) => isActiveRoute ? !currentPlay : true);
-    }, [route, routeOptions, setRoute]);
+    }, [clearRouteFocus, route, routeOptions, setPlay, setRoute, setRoutePreviewMode]);
 
     useEffect(() => {
         const virtualKeyboard = (navigator as NavigatorWithVirtualKeyboard).virtualKeyboard;
@@ -355,7 +372,7 @@ function MetroMapStage() {
 
     const cockpitBody = (
         <>
-            <Suspense fallback={<SearchFallback />}>
+            <LazyBoundary fallback={<SearchFallback />}>
                 <SearchBox
                     animationMode={animationMode}
                     cinematicZoom={cinematicZoom}
@@ -366,7 +383,7 @@ function MetroMapStage() {
                     onRoutePlan={handleRoutePlan}
                     onStationSearchFocus={handleStationSearchFocus}
                 />
-            </Suspense>
+            </LazyBoundary>
             <section className="grid gap-3 border-t border-neutral-200 pt-3 dark:border-zinc-700 sm:gap-4 sm:pt-5">
                 <div>
                     <h2 className="text-lg font-semibold sm:mt-2 sm:text-xl">
@@ -384,9 +401,9 @@ function MetroMapStage() {
                 />
 
                 {route ? (
-                    <Suspense fallback={<section className="rounded-lg bg-white p-3 text-sm text-neutral-500 dark:bg-zinc-900 dark:text-zinc-400">{t('journeyTimelinePrompt')}</section>}>
-                        <JourneyTimeline route={route} activeStationId={activeRouteStationId} />
-                    </Suspense>
+                    <LazyBoundary fallback={<section className="rounded-lg bg-white p-3 text-sm text-neutral-500 dark:bg-zinc-900 dark:text-zinc-400">{t('journeyTimelinePrompt')}</section>}>
+                        <JourneyTimeline route={route} activeStationId={activeRouteStationId} onStationClick={setSelectedStationInfoId} />
+                    </LazyBoundary>
                 ) : (
                     <section className="rounded-lg bg-white p-3 text-sm text-neutral-500 dark:bg-zinc-900 dark:text-zinc-400">
                         {t('journeyTimelinePrompt')}
@@ -397,9 +414,9 @@ function MetroMapStage() {
 
                 <JourneyInfoPanel route={route} />
                 {route ? (
-                    <Suspense fallback={null}>
+                    <LazyBoundary fallback={null}>
                         <RouteSharePanel route={route} fromName={routeFromName} toName={routeToName} />
-                    </Suspense>
+                    </LazyBoundary>
                 ) : null}
                 <CreatorLinks />
             </section>
@@ -411,7 +428,7 @@ function MetroMapStage() {
             <div className="grid min-h-[calc(100svh-1.5rem)] gap-4 sm:min-h-[calc(100svh-2rem)] lg:min-h-[calc(100svh-3rem)] lg:grid-cols-2">
                 <main className="relative min-h-[calc(100svh-1.5rem)] overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:min-h-[calc(100svh-2rem)] lg:min-h-0">
                     {canLoadInteractiveMap ? (
-                        <Suspense fallback={<MapFallback />}>
+                        <LazyBoundary fallback={<MapFallback />}>
                             <SvgComponent
                                 path={path}
                                 route={route}
@@ -422,10 +439,11 @@ function MetroMapStage() {
                                 cinematicZoom={cinematicZoom}
                                 routeFitRequest={routeFitRequest}
                                 routePreviewMode={routePreviewMode}
+                                onStationClick={setSelectedStationInfoId}
                                 setPlay={setPlay}
                                 play={play}
                             />
-                        </Suspense>
+                        </LazyBoundary>
                     ) : (
                         <MapFallback />
                     )}
@@ -462,6 +480,11 @@ function MetroMapStage() {
                                         {cockpitBody}
                                     </div>
                                 </div>
+                                {selectedStationInfoId ? (
+                                    <LazyBoundary fallback={null}>
+                                        <StationInfoDrawer stationId={selectedStationInfoId} onClose={() => setSelectedStationInfoId(null)} />
+                                    </LazyBoundary>
+                                ) : null}
                             </Drawer.Content>
                         </Drawer.Portal>
                     </Drawer.Root>
@@ -472,6 +495,11 @@ function MetroMapStage() {
                         </div>
 
                         {cockpitBody}
+                        {selectedStationInfoId ? (
+                            <LazyBoundary fallback={null}>
+                                <StationInfoDrawer stationId={selectedStationInfoId} onClose={() => setSelectedStationInfoId(null)} />
+                            </LazyBoundary>
+                        ) : null}
                     </aside>
                 )}
             </div>

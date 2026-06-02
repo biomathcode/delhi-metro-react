@@ -28,6 +28,41 @@
   <meta name="robots" content="index, follow" />
   <meta name="author" content="Delhi Metro Route Planner" />
   <meta name="theme-color" content="#f4f0e8" />
+  <script>
+    document.documentElement.classList.add('js');
+  </script>
+  <style>
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #f4f0e8;
+    }
+
+    #root {
+      min-height: 100svh;
+      background: #f4f0e8;
+    }
+
+    .js .seo-prerender {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: 100vw;
+      height: 100svh;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      contain: layout size style paint;
+    }
+
+    .js .seo-prerender img {
+      display: block;
+      width: min(100vw, 1200px);
+      height: auto;
+      aspect-ratio: 1200 / 630;
+    }
+  </style>
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://metro.coolhead.in/" />
@@ -35,7 +70,7 @@
   <meta property="og:description"
     content="Search Delhi Metro stations, compare route details, view interchange information, and follow your journey on an animated metro map." />
   <meta property="og:site_name" content="Delhi Metro Route Planner" />
-  <meta property="og:image" content="https://metro.coolhead.in/images/showcase.png" />
+  <meta property="og:image" content="https://metro.coolhead.in/images/showcase-1200x630.png" />
   <meta property="og:image:alt" content="Delhi Metro route planner with interactive map and journey details" />
   <meta property="og:locale" content="en_IN" />
   <meta property="og:locale:alternate" content="hi_IN" />
@@ -46,7 +81,7 @@
   <meta name="twitter:title" content="Delhi Metro Route Planner | Map, Fare, Stops & Interchanges" />
   <meta name="twitter:description"
     content="Interactive Delhi Metro route planning with station search, fare estimate, stop count, interchange details, and line-color route guidance." />
-  <meta name="twitter:image" content="https://metro.coolhead.in/images/showcase.png" />
+  <meta name="twitter:image" content="https://metro.coolhead.in/images/showcase-1200x630.png" />
   <meta name="twitter:image:alt" content="Delhi Metro route planner with interactive map and journey details" />
 
   <script type="application/ld+json">
@@ -95,7 +130,7 @@
         "applicationCategory": "TravelApplication",
         "operatingSystem": "Web",
         "inLanguage": ["en-IN", "hi-IN", "mr-IN", "bn-IN"],
-        "image": "https://metro.coolhead.in/images/showcase.png",
+        "image": "https://metro.coolhead.in/images/showcase-1200x630.png",
         "description": "Interactive Delhi Metro route planner with station search, animated metro map, fare estimate, travel time, stop count, interchange details, and line-color guidance.",
         "keywords": "Delhi Metro route planner, Delhi Metro map, Delhi Metro fare calculator, Delhi Metro station search, Delhi Metro interchanges",
         "offers": {
@@ -159,8 +194,7 @@
         time, stop count, interchange stations, and line-color guidance. The planner is useful for daily office travel,
         airport trips, college commutes, shopping journeys, and quick station-to-station route checks.
       </p>
-      <img src="/images/showcase.png" alt="Delhi Metro route planner showing map and journey details" width="1200"
-        height="630" loading="eager" />
+
       <p>
         Popular route examples include
         <a href="/routes/rajiv-chowk-to-kashmere-gate/">Rajiv Chowk to Kashmere Gate</a>,
@@ -172,7 +206,8 @@
         <a href="/stations/netaji-subhash-place/">Netaji Subhash Place</a>.
       </p>
       <p>
-        The app supports clean route pages for search engines and shareable planner URLs for users. Each route page opens
+        The app supports clean route pages for search engines and shareable planner URLs for users. Each route page
+        opens
         with the source and destination already selected, then loads the same interactive planner used on the homepage.
         For official network notices and passenger information, visit the
         <a href="https://www.delhimetrorail.com/" target="_blank" rel="noopener noreferrer">Delhi Metro Rail
@@ -186,8 +221,10 @@
         or open the same journey again without manually selecting stations each time.
       </p>
       <p>
-        The planner is also built for discovery. Station pages explain connected stations and link to useful routes, while
-        route pages describe the complete journey between two metro stations. This structure helps commuters find answers
+        The planner is also built for discovery. Station pages explain connected stations and link to useful routes,
+        while
+        route pages describe the complete journey between two metro stations. This structure helps commuters find
+        answers
         through search and then continue directly into the interactive experience. Whether you are checking a short
         neighboring-station trip or a longer journey across multiple Delhi Metro lines, the page gives you a starting
         estimate before you confirm details for the day of travel.
@@ -202,7 +239,8 @@
       interchange stations before opening the interactive map.
     </p>
     <p>
-      The site includes static pages for every ordered Delhi Metro station pair, station pages for the network, a sitemap
+      The site includes static pages for every ordered Delhi Metro station pair, station pages for the network, a
+      sitemap
       index for crawlers, and an llms.txt file for AI search engines. The planner is not an official Delhi Metro Rail
       Corporation service; official service notices should be checked with DMRC.
     </p>
@@ -221,11 +259,15 @@
         })(window, document, 'clarity', 'script', 'wxp6miuws0');
       };
 
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(loadClarity, { timeout: 3000 });
-      } else {
-        window.setTimeout(loadClarity, 1500);
-      }
+      var loadClarityLater = function () {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(loadClarity, { timeout: 8000 });
+        } else {
+          window.setTimeout(loadClarity, 8000);
+        }
+      };
+
+      window.setTimeout(loadClarityLater, 3500);
     });
   </script>
 </body>

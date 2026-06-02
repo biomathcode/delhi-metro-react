@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 
 import edges from '../data/edge.json';
-import stations from '../data/labels.json';
+import stations from '../data/stations-lite.json';
 import RouteDirectionCard from './RouteDirectionCard';
 import { getLocalizedStationName, useI18n, type Language } from '../i18n';
 import type { RouteStationDetail, RouteSummary } from '../types/route';
@@ -11,6 +11,7 @@ import type { RouteStationDetail, RouteSummary } from '../types/route';
 interface JourneyTimelineProps {
     route: RouteSummary | null;
     activeStationId: string | null;
+    onStationClick?: (stationId: string) => void;
 }
 
 const stationName = (id: string, language: Language) => {
@@ -54,11 +55,11 @@ const getLineTerminal = (fromStationId: string, nextStationId: string, color: st
     return stationName(currentStationId, language);
 };
 
-function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
+function JourneyTimeline({ route, activeStationId, onStationClick }: JourneyTimelineProps) {
     const { language, t } = useI18n();
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const captureRef = useRef<HTMLDivElement | null>(null);
-    const stationRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const stationRefs = useRef<Record<string, HTMLElement | null>>({});
     const [isDownloading, setIsDownloading] = useState(false);
 
     const timelineItems = useMemo(() => {
@@ -181,12 +182,14 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
                         );
 
                         return (
-                            <div
+                            <button
+                                type="button"
                                 key={station.id}
                                 ref={(element) => {
                                     stationRefs.current[station.id] = element;
                                 }}
-                                className="grid w-36 shrink-0 grid-rows-[72px_34px_72px] justify-items-center md:snap-center"
+                                onClick={() => onStationClick?.(station.id)}
+                                className="grid w-36 shrink-0 grid-rows-[72px_34px_72px] justify-items-center text-left text-inherit md:snap-center"
                             >
                                 <div className="flex h-full w-full items-end justify-center px-1 pb-2">
                                     {placeAbove ? label : null}
@@ -213,7 +216,7 @@ function JourneyTimeline({ route, activeStationId }: JourneyTimelineProps) {
                                         {t('change')}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         );
                     })}
                 </div>

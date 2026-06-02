@@ -8,8 +8,6 @@ const SUPPORT_EMAIL = 'sharma.pratik2016@gmail.com';
 const LINKEDIN_URL = 'https://linkedin.com/in/biomathcode';
 const GITHUB_URL = 'https://github.com/biomathcode';
 const YOUTUBE_URL = 'https://www.youtube.com/@delhi-metro-map';
-const PEERLIST_URL = 'https://peerlist.io/biomathcode/project/delhi-metro-route-planner--map-fare-stops';
-const PEERLIST_EMBED_URL = 'https://peerlist.io/api/v1/projects/embed/PRJHA9EMNBQJ9DMPACKPLL7MO8O77B?showUpvote=false&theme=light';
 
 function CreatorLinks() {
     const { t } = useI18n();
@@ -63,32 +61,7 @@ function CreatorLinks() {
                 </button>
 
             </div>
-            <div className='flex gap-10'
-            >  <a href={PEERLIST_URL} target="_blank" rel="noreferrer" className="inline-flex">
-                    <img
-                        src={PEERLIST_EMBED_URL}
-                        alt="Delhi Metro Route Planner | Map, Fare, Stops"
-                        style={{ width: 'auto', height: 60 }}
-                        loading="lazy"
-                        decoding="async"
-                    />
-                </a>
-                <a
-                    href="https://www.scrolllaunch.com/products/delhi-metro-route-planner?utm_source=badge&utm_medium=embed&utm_campaign=delhi-metro-route-planner&ref=scrolllaunch"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex w-fit"
-                >
-                    <img
-                        src="https://www.scrolllaunch.com/api/badge/delhi-metro-route-planner"
-                        alt="Featured on ScrollLaunch"
-                        width="220"
-                        height="48"
-                        loading="lazy"
-                    />
-                </a>
 
-            </div>
 
         </section>
     );

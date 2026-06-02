@@ -23,13 +23,14 @@ interface MapProps {
     mapGroupRef: React.RefObject<SVGGElement | null>;
     zoomFunction: MapControls;
     train: React.ReactNode;
+    onMapClick?: (event: React.MouseEvent<SVGSVGElement>) => void;
 }
 
 const transformToString = ({ scaleX, scaleY, translateX, translateY }: MapTransform) =>
     `matrix(${scaleX} 0 0 ${scaleY} ${translateX} ${translateY})`;
 
 const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
-    ({ style, mapGroupRef, zoomFunction, train }: MapProps, ref) => (
+    ({ style, mapGroupRef, zoomFunction, train, onMapClick }: MapProps, ref) => (
         <svg
             xmlns='http://www.w3.org/2000/svg'
             className="metro-map"
@@ -48,6 +49,7 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
             onMouseMove={zoomFunction.dragMove}
             onMouseUp={zoomFunction.dragEnd}
             onMouseLeave={zoomFunction.dragEnd}
+            onClick={onMapClick}
             onDoubleClick={(event) => zoomFunction.zoomAt(1.18, event)}
         >
             <g ref={mapGroupRef} transform={transformToString(zoomFunction.transform)}>
