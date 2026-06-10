@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import edges from '../data/edge.json';
+import gtfsSchedule from '../data/gtfs-schedule.json';
 import stationLabels from '../data/stations-lite.json';
 import MetroTrain from '../assets/metro.svg?react';
 import Map, { type MapControls, type MapTransform } from './metromap';
@@ -37,6 +38,103 @@ const SHORTS_FRAME_RATE = 30;
 const ENABLE_SHORTS_EXPORT = import.meta.env.DEV
   && typeof window !== 'undefined'
   && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+const SCHEDULE_DAY_OPTIONS = ['weekday', 'saturday', 'sunday'] as const;
+const SCHEDULE_SPEED = 90;
+const MAX_VISIBLE_SCHEDULE_TRAINS = 180;
+const SCHEDULE_TRAIL_OFFSETS = [0.016, 0.034, 0.056] as const;
+const SCHEDULE_EXPORT_FRAME_RATE = 60;
+const SCHEDULE_EXPORT_DURATION_SECONDS = 60;
+const SCHEDULE_EXPORT_START_MINUTES = 5 * 60;
+const SCHEDULE_EXPORT_END_MINUTES = 23 * 60 + 30;
+
+type ScheduleDay = typeof SCHEDULE_DAY_OPTIONS[number];
+type GtfsPattern = {
+  s: string[];
+  e?: string[];
+  p: string;
+  x: number[];
+};
+type GtfsTrip = [serviceIndex: number, patternIndex: number, colorIndex: number, start: number, end: number, times: number[]];
+type GtfsSchedule = {
+  services: ScheduleDay[];
+  colors: string[];
+  patterns: GtfsPattern[];
+  trips: GtfsTrip[];
+  stats: {
+    trips: number;
+    patterns: number;
+    matchedStops: number;
+    gtfsStops: number;
+  };
+};
+const scheduleData = gtfsSchedule as unknown as GtfsSchedule;
+const formatScheduleTime = (minutes: number) => {
+  const totalMinutes = Math.round(minutes) % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+const getSchedulePhase = (minutes: number) => {
+  if (minutes >= 5 * 60 && minutes < 11 * 60) return 'Morning peak';
+  if (minutes >= 11 * 60 && minutes < 16 * 60) return 'Day service';
+  if (minutes >= 16 * 60 && minutes < 21 * 60) return 'Evening rush';
+  if (minutes >= 21 * 60 && minutes < 24 * 60) return 'Late service';
+  return 'Night lull';
+};
+const smoothStep = (value: number) => value * value * (3 - 2 * value);
+
+const hexToRgb = (hex: string) => {
+  const normalized = hex.replace('#', '');
+  const expanded = normalized.length === 3
+    ? normalized.split('').map((char) => `${char}${char}`).join('')
+    : normalized;
+  const value = Number.parseInt(expanded, 16);
+
+  if (!Number.isFinite(value)) return { r: 17 / 255, g: 24 / 255, b: 39 / 255 };
+
+  return {
+    r: ((value >> 16) & 255) / 255,
+    g: ((value >> 8) & 255) / 255,
+    b: (value & 255) / 255,
+  };
+};
+
+const createShader = (gl: WebGLRenderingContext, type: number, source: string) => {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error('Could not create WebGL shader.');
+
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const message = gl.getShaderInfoLog(shader) || 'WebGL shader compilation failed.';
+    gl.deleteShader(shader);
+    throw new Error(message);
+  }
+
+  return shader;
+};
+
+const createProgram = (gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) => {
+  const program = gl.createProgram();
+  if (!program) throw new Error('Could not create WebGL program.');
+
+  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const message = gl.getProgramInfoLog(program) || 'WebGL program linking failed.';
+    gl.deleteProgram(program);
+    throw new Error(message);
+  }
+
+  return program;
+};
 
 const fitTransform: MapTransform = {
   scaleX: 1,
@@ -635,6 +733,7 @@ function SvgComponent({
   cinematicZoom,
   routeFitRequest,
   routePreviewMode = false,
+  scheduleMode = false,
 }: {
   setPlay: React.Dispatch<React.SetStateAction<boolean>>;
   play: boolean;
@@ -648,17 +747,34 @@ function SvgComponent({
   cinematicZoom: CinematicZoomLevel;
   routeFitRequest?: number;
   routePreviewMode?: boolean;
+  scheduleMode?: boolean;
 }) {
   const { language } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
   const [isExportingShortsVideo, setIsExportingShortsVideo] = useState(false);
   const [canExportVideo, setCanExportVideo] = useState(false);
+  const [isExportingScheduleVideo, setIsExportingScheduleVideo] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(scheduleMode);
+  const [schedulePlaying, setSchedulePlaying] = useState(true);
+  const [scheduleDay, setScheduleDay] = useState<ScheduleDay>('weekday');
+  const [scheduleTimeMinutes, setScheduleTimeMinutes] = useState(8 * 60);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const webglScheduleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const webglScheduleRenderRef = useRef<(() => void) | null>(null);
+  const webglScheduleStateRef = useRef<{
+    gl: WebGLRenderingContext;
+    program: WebGLProgram;
+    buffer: WebGLBuffer;
+    positionLocation: number;
+    colorLocation: number;
+    pointSizeLocation: number;
+  } | null>(null);
   const mapGroupRef = useRef<SVGGElement | null>(null);
   const trainRef = useRef<SVGGElement | null>(null);
   const routePathRef = useRef<SVGPathElement | null>(null);
   const pathMeasureRef = useRef<SVGPathElement | null>(null);
+  const schedulePathRefs = useRef(new globalThis.Map<string, SVGPathElement>());
   const pathLengthRef = useRef(0);
   const transformRef = useRef<MapTransform>(fitTransform);
   const pendingTransformRef = useRef<MapTransform | null>(null);
@@ -679,6 +795,224 @@ function SvgComponent({
   const tweenRef = useRef<gsap.core.Timeline | null>(null);
   const playRef = useRef(play);
   const routeCameraScale = ROUTE_CAMERA_SCALE * (cinematicZoom / 3);
+  const schedulePatterns = useMemo(
+    () => scheduleData.patterns,
+    []
+  );
+  const scheduleTripsByDay = useMemo(
+    () => SCHEDULE_DAY_OPTIONS.reduce<Record<ScheduleDay, GtfsTrip[]>>((acc, day) => {
+      const serviceIndex = scheduleData.services.indexOf(day);
+      acc[day] = scheduleData.trips
+        .filter((trip) => trip[0] === serviceIndex)
+        .sort((left, right) => left[3] - right[3]);
+      return acc;
+    }, { weekday: [], saturday: [], sunday: [] }),
+    []
+  );
+  const scheduleActiveTrains = useMemo(() => {
+    if (!scheduleEnabled) return [];
+
+    const currentSeconds = Math.round(scheduleTimeMinutes * 60);
+    const activeTrips = scheduleTripsByDay[scheduleDay].filter((trip) =>
+      trip[3] <= currentSeconds && trip[4] >= currentSeconds
+    );
+
+    return activeTrips.slice(0, MAX_VISIBLE_SCHEDULE_TRAINS).flatMap((trip, activeIndex) => {
+      const pattern = schedulePatterns[trip[1]];
+      const measure = schedulePathRefs.current.get(String(trip[1]));
+      const pathLength = measure?.getTotalLength() || 0;
+
+      if (!pattern || !measure || !pathLength) return [];
+
+      const times = trip[5];
+      let progress = pattern.x[0] || 0;
+      let stationIndex = 0;
+      let isDwelling = false;
+
+      for (let index = 0; index < times.length / 2 - 1; index += 1) {
+        const arrival = times[index * 2];
+        const departure = times[index * 2 + 1];
+        const nextArrival = times[(index + 1) * 2];
+
+        if (currentSeconds >= arrival && currentSeconds <= departure) {
+          progress = pattern.x[index] || progress;
+          stationIndex = index;
+          isDwelling = true;
+          break;
+        }
+
+        if (currentSeconds >= departure && currentSeconds <= nextArrival) {
+          const segmentProgress = smoothStep(clamp((currentSeconds - departure) / Math.max(1, nextArrival - departure), 0, 1));
+          const fromProgress = pattern.x[index] || 0;
+          const toProgress = pattern.x[index + 1] ?? fromProgress;
+          progress = fromProgress + (toProgress - fromProgress) * segmentProgress;
+          stationIndex = index;
+          break;
+        }
+
+        if (index === times.length / 2 - 2) {
+          progress = pattern.x[index + 1] ?? progress;
+          stationIndex = index + 1;
+        }
+      }
+
+      const distance = clamp(progress, 0, 1) * pathLength;
+      const point = measure.getPointAtLength(distance);
+      const nextPoint = measure.getPointAtLength(clamp(distance + 3, 0, pathLength));
+      const angle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x) * (180 / Math.PI);
+      const stationId = pattern.s[stationIndex] || pattern.s[0] || '';
+      const stationName = stationLabels.find((station) => station.id === stationId)?.text || stationId;
+      const trail = SCHEDULE_TRAIL_OFFSETS.map((offset, trailIndex) => {
+        const trailPoint = measure.getPointAtLength(clamp((progress - offset) * pathLength, 0, pathLength));
+        return {
+          id: `${trailIndex}`,
+          x: trailPoint.x,
+          y: trailPoint.y,
+          opacity: 0.22 - trailIndex * 0.055,
+          radius: 5.5 - trailIndex * 0.8,
+        };
+      });
+
+      return [{
+        id: `${trip[1]}-${trip[3]}-${activeIndex}`,
+        x: point.x,
+        y: point.y,
+        angle,
+        color: scheduleData.colors[trip[2]] || '#111827',
+        label: stationName,
+        isDwelling,
+        trail,
+      }];
+    });
+  }, [scheduleDay, scheduleEnabled, schedulePatterns, scheduleTimeMinutes, scheduleTripsByDay]);
+  const shouldUseWebglScheduleLayer = scheduleMode && scheduleEnabled && !isExportingScheduleVideo;
+
+  useEffect(() => {
+    webglScheduleRenderRef.current = () => {
+      const canvas = webglScheduleCanvasRef.current;
+      const svg = svgRef.current;
+      if (!canvas || !svg) return;
+
+      const gl = canvas.getContext('webgl', {
+        alpha: true,
+        antialias: true,
+        depth: false,
+        premultipliedAlpha: true,
+        preserveDrawingBuffer: false,
+      });
+      if (!gl) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.round(rect.width * pixelRatio));
+      const height = Math.max(1, Math.round(rect.height * pixelRatio));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      gl.viewport(0, 0, width, height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      if (!shouldUseWebglScheduleLayer || !scheduleActiveTrains.length) return;
+
+      let state = webglScheduleStateRef.current;
+      if (!state || state.gl !== gl) {
+        const program = createProgram(
+          gl,
+          `
+            attribute vec2 a_position;
+            attribute vec4 a_color;
+            attribute float a_pointSize;
+            varying vec4 v_color;
+            void main() {
+              gl_Position = vec4(a_position, 0.0, 1.0);
+              gl_PointSize = a_pointSize;
+              v_color = a_color;
+            }
+          `,
+          `
+            precision mediump float;
+            varying vec4 v_color;
+            void main() {
+              vec2 centered = gl_PointCoord - vec2(0.5);
+              float distanceFromCenter = length(centered);
+              float edge = smoothstep(0.5, 0.36, distanceFromCenter);
+              gl_FragColor = vec4(v_color.rgb, v_color.a * edge);
+            }
+          `
+        );
+        const buffer = gl.createBuffer();
+        if (!buffer) return;
+
+        state = {
+          gl,
+          program,
+          buffer,
+          positionLocation: gl.getAttribLocation(program, 'a_position'),
+          colorLocation: gl.getAttribLocation(program, 'a_color'),
+          pointSizeLocation: gl.getAttribLocation(program, 'a_pointSize'),
+        };
+        webglScheduleStateRef.current = state;
+      }
+
+      const svgRect = svg.getBoundingClientRect();
+      const viewScale = Math.min(svgRect.width / VIEWBOX_WIDTH, svgRect.height / VIEWBOX_HEIGHT);
+      const offsetX = (svgRect.width - VIEWBOX_WIDTH * viewScale) / 2;
+      const offsetY = (svgRect.height - VIEWBOX_HEIGHT * viewScale) / 2;
+      const currentTransform = transformRef.current;
+      const toClip = (x: number, y: number) => {
+        const viewBoxX = x * currentTransform.scaleX + currentTransform.translateX;
+        const viewBoxY = y * currentTransform.scaleY + currentTransform.translateY;
+        const screenX = (offsetX + viewBoxX * viewScale) * pixelRatio;
+        const screenY = (offsetY + viewBoxY * viewScale) * pixelRatio;
+        return {
+          x: (screenX / width) * 2 - 1,
+          y: 1 - (screenY / height) * 2,
+        };
+      };
+      const vertices: number[] = [];
+      const pushPoint = (x: number, y: number, color: string, alpha: number, pointSize: number) => {
+        const point = toClip(x, y);
+        const rgb = hexToRgb(color);
+        vertices.push(point.x, point.y, rgb.r, rgb.g, rgb.b, alpha, pointSize * pixelRatio);
+      };
+
+      for (const train of scheduleActiveTrains) {
+        for (const trail of train.trail) {
+          pushPoint(trail.x, trail.y, train.color, trail.opacity, trail.radius * 2.4);
+        }
+
+        if (train.isDwelling) {
+          pushPoint(train.x, train.y, train.color, 0.24, 24);
+        }
+
+        pushPoint(train.x, train.y, train.color, 0.82, 13);
+        pushPoint(train.x, train.y, '#ffffff', 0.9, 5.2);
+      }
+
+      if (!vertices.length) return;
+
+      const vertexData = new Float32Array(vertices);
+      const stride = 7 * Float32Array.BYTES_PER_ELEMENT;
+      gl.useProgram(state.program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, state.buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.enableVertexAttribArray(state.positionLocation);
+      gl.vertexAttribPointer(state.positionLocation, 2, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(state.colorLocation);
+      gl.vertexAttribPointer(state.colorLocation, 4, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+      gl.enableVertexAttribArray(state.pointSizeLocation);
+      gl.vertexAttribPointer(state.pointSizeLocation, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+      gl.drawArrays(gl.POINTS, 0, vertexData.length / 7);
+    };
+
+    webglScheduleRenderRef.current();
+  }, [scheduleActiveTrains, shouldUseWebglScheduleLayer]);
 
   useLayoutEffect(() => {
     const svg = svgRef.current;
@@ -729,6 +1063,32 @@ function SvgComponent({
     setCanExportVideo(typeof VideoEncoder !== 'undefined');
   }, []);
 
+  useEffect(() => {
+    if (scheduleMode) {
+      setScheduleEnabled(true);
+      setSchedulePlaying(true);
+    }
+  }, [scheduleMode]);
+
+  useEffect(() => {
+    if (!scheduleEnabled || !schedulePlaying) return;
+
+    let frameId = 0;
+    let previousTimestamp = performance.now();
+
+    const tick = (timestamp: number) => {
+      const deltaSeconds = (timestamp - previousTimestamp) / 1000;
+      previousTimestamp = timestamp;
+
+      setScheduleTimeMinutes((current) => (current + (deltaSeconds * SCHEDULE_SPEED) / 60) % (24 * 60));
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [scheduleEnabled, schedulePlaying]);
+
   useEffect(() => () => {
     if (transformFrameRef.current !== null) {
       cancelAnimationFrame(transformFrameRef.current);
@@ -746,6 +1106,7 @@ function SvgComponent({
       }
 
       mapGroupRef.current?.setAttribute('transform', transformToString(nextTransform));
+      webglScheduleRenderRef.current?.();
       pendingTransformRef.current = null;
       return;
     }
@@ -758,6 +1119,7 @@ function SvgComponent({
       if (!pendingTransform) return;
 
       mapGroupRef.current?.setAttribute('transform', transformToString(pendingTransform));
+      webglScheduleRenderRef.current?.();
       pendingTransformRef.current = null;
     });
   }, []);
@@ -1333,6 +1695,113 @@ function SvgComponent({
     setPlay,
   ]);
 
+  const waitForScheduleFrame = () =>
+    new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+  const downloadWeekdayScheduleVideo = React.useCallback(async () => {
+    const svg = svgRef.current;
+    if (!svg || isExportingScheduleVideo) return;
+
+    setIsExportingScheduleVideo(true);
+    const previousScheduleEnabled = scheduleEnabled;
+    const previousSchedulePlaying = schedulePlaying;
+    const previousScheduleDay = scheduleDay;
+    const previousScheduleTimeMinutes = scheduleTimeMinutes;
+
+    try {
+      const {
+        BufferTarget,
+        CanvasSource,
+        Output,
+        QUALITY_HIGH,
+        WebMOutputFormat,
+        canEncodeVideo,
+      } = await import('mediabunny');
+
+      const width = 1920;
+      const height = Math.round(width * (VIEWBOX_HEIGHT / VIEWBOX_WIDTH));
+      const frameRate = SCHEDULE_EXPORT_FRAME_RATE;
+      const frameDuration = 1 / frameRate;
+      const frameCount = Math.ceil(SCHEDULE_EXPORT_DURATION_SECONDS * frameRate);
+      const canvas = typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(width, height)
+        : document.createElement('canvas');
+
+      if (canvas instanceof HTMLCanvasElement) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const context = canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+      if (!context) throw new Error('Canvas export is not supported in this browser.');
+
+      await document.fonts?.ready;
+
+      const codec = await canEncodeVideo('vp9', { width, height, bitrate: QUALITY_HIGH })
+        ? 'vp9'
+        : await canEncodeVideo('vp8', { width, height, bitrate: QUALITY_HIGH })
+          ? 'vp8'
+          : null;
+
+      if (!codec) throw new Error('This browser cannot encode WebM video.');
+
+      const target = new BufferTarget();
+      const output = new Output({
+        format: new WebMOutputFormat(),
+        target,
+      });
+      const source = new CanvasSource(canvas, {
+        codec,
+        bitrate: QUALITY_HIGH,
+      });
+
+      output.addVideoTrack(source);
+      await output.start();
+
+      setScheduleEnabled(true);
+      setSchedulePlaying(false);
+      setScheduleDay('weekday');
+      await waitForScheduleFrame();
+
+      for (let frame = 0; frame <= frameCount; frame += 1) {
+        const exportProgress = frame / frameCount;
+        const exportMinutes = SCHEDULE_EXPORT_START_MINUTES
+          + (SCHEDULE_EXPORT_END_MINUTES - SCHEDULE_EXPORT_START_MINUTES) * exportProgress;
+        setScheduleTimeMinutes(exportMinutes);
+        await waitForScheduleFrame();
+        await drawSvgToCanvas(canvas, context, width, height);
+        await source.add(frame * frameDuration, frameDuration, { keyFrame: frame % frameRate === 0 });
+      }
+
+      await output.finalize();
+      if (!target.buffer) throw new Error('Video export did not produce a file.');
+
+      const blob = new Blob([target.buffer], { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'delhi-metro-weekday-simulation-60fps.webm';
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      console.error(error);
+      window.alert(error instanceof Error ? error.message : 'Could not export weekday simulation video.');
+    } finally {
+      setScheduleEnabled(previousScheduleEnabled);
+      setSchedulePlaying(previousSchedulePlaying);
+      setScheduleDay(previousScheduleDay);
+      setScheduleTimeMinutes(previousScheduleTimeMinutes);
+      setIsExportingScheduleVideo(false);
+    }
+  }, [
+    drawSvgToCanvas,
+    isExportingScheduleVideo,
+    scheduleDay,
+    scheduleEnabled,
+    schedulePlaying,
+    scheduleTimeMinutes,
+  ]);
+
   const fetchShortsVoiceover = React.useCallback(async (script: string, targetLanguageCode: string) => {
     const response = await fetch('/api/sarvam-tts', {
       method: 'POST',
@@ -1626,7 +2095,7 @@ function SvgComponent({
   ]);
 
   return (
-    <div className="absolute inset-0">
+    <div className={`absolute inset-0 ${scheduleMode ? 'simulation-map' : ''}`}>
       <Map
         style={{
           width: '100%',
@@ -1644,6 +2113,77 @@ function SvgComponent({
                   <animate attributeName="opacity" values="0.28;0.04;0.28" dur="1.8s" repeatCount="indefinite" />
                 </circle>
                 <circle r={7} fill="#dc2626" stroke="#fff" strokeWidth={2.5} />
+              </g>
+            ) : null}
+            {scheduleEnabled && !shouldUseWebglScheduleLayer ? (
+              <g className="gtfs-schedule-layer">
+                <g aria-hidden="true">
+                  {scheduleData.patterns.map((pattern, patternIndex) => (
+                    <path
+                      key={patternIndex}
+                      ref={(element) => {
+                        if (element) {
+                          schedulePathRefs.current.set(String(patternIndex), element);
+                        } else {
+                          schedulePathRefs.current.delete(String(patternIndex));
+                        }
+                      }}
+                      d={pattern.p}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={1}
+                      pointerEvents="none"
+                    />
+                  ))}
+                </g>
+                <g className="gtfs-train-trails" aria-hidden="true">
+                  {scheduleActiveTrains.flatMap((train) => train.trail.map((trail) => (
+                    <circle
+                      key={`${train.id}-trail-${trail.id}`}
+                      cx={trail.x}
+                      cy={trail.y}
+                      r={trail.radius}
+                      fill={train.color}
+                      opacity={trail.opacity}
+                      className="gtfs-train-trail"
+                    />
+                  )))}
+                </g>
+                <g className="gtfs-station-pulses" aria-hidden="true">
+                  {scheduleActiveTrains.filter((train) => train.isDwelling).slice(0, 42).map((train) => (
+                    <circle
+                      key={`${train.id}-pulse`}
+                      cx={train.x}
+                      cy={train.y}
+                      r={9}
+                      fill={train.color}
+                      className="gtfs-station-pulse"
+                    />
+                  ))}
+                </g>
+                {scheduleActiveTrains.map((train) => (
+                  <g
+                    key={train.id}
+                    transform={`translate(${train.x} ${train.y}) rotate(${train.angle})`}
+                    className="gtfs-train"
+                    pointerEvents="none"
+                  >
+                    <title>{train.label} · {formatScheduleTime(scheduleTimeMinutes)}</title>
+                    <circle
+                      r={9}
+                      fill={train.color}
+                      opacity={0.18}
+                    />
+                    <MetroTrain
+                      width={24}
+                      height={16}
+                      x={-12}
+                      y={-8}
+                      aria-hidden="true"
+                      focusable="false"
+                    />
+                  </g>
+                ))}
               </g>
             ) : null}
             {path ? (
@@ -1692,8 +2232,13 @@ function SvgComponent({
         onMapClick={handleMapClick}
         zoomFunction={mapControls}
       />
+      <canvas
+        ref={webglScheduleCanvasRef}
+        className="gtfs-webgl-layer"
+        aria-hidden="true"
+      />
 
-      <div className="absolute right-0 top-0">
+      <div className="absolute right-0 top-0 z-20">
         <div className="flex flex-col gap-2 rounded-lg border border-white/15 p-2 shadow-lg backdrop-blur">
           <button
             onClick={() => path && setPlay((p) => !p)}
@@ -1770,6 +2315,101 @@ function SvgComponent({
                   <span>Shorts</span>
                 </>
               )}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={`absolute left-2 top-2 z-20 max-w-[calc(100%-5.5rem)] rounded-lg border border-white/40 bg-white/92 p-2 text-neutral-950 shadow-lg backdrop-blur dark:border-zinc-700/80 dark:bg-zinc-900/90 dark:text-zinc-100 sm:left-3 sm:top-3 ${scheduleMode ? 'sm:w-[430px]' : 'sm:w-[360px]'}`}>
+        <div className="grid gap-2">
+          {scheduleMode ? (
+            <div className="grid gap-1 border-b border-neutral-200 pb-2 dark:border-zinc-700">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-3xl font-black leading-none tabular-nums sm:text-4xl">
+                    {formatScheduleTime(scheduleTimeMinutes)}
+                  </div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-wide text-neutral-500 dark:text-zinc-400">
+                    {getSchedulePhase(scheduleTimeMinutes)} · {scheduleDay}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-neutral-100 px-3 py-2 text-right dark:bg-zinc-800">
+                  <div className="text-xl font-black tabular-nums">{scheduleActiveTrains.length}</div>
+                  <div className="text-[10px] font-bold uppercase text-neutral-500 dark:text-zinc-400">trains</div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={`flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-xs font-bold transition ${scheduleEnabled ? 'bg-neutral-900 text-white dark:bg-white dark:text-zinc-950' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'}`}
+              onClick={() => setScheduleEnabled((enabled) => !enabled)}
+              aria-pressed={scheduleEnabled}
+              disabled={scheduleMode}
+              title="Show scheduled metros"
+            >
+              GTFS
+            </button>
+            <button
+              type="button"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-800 disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-100"
+              onClick={() => setSchedulePlaying((playing) => !playing)}
+              disabled={!scheduleEnabled}
+              title={schedulePlaying ? 'Pause schedule' : 'Play schedule'}
+            >
+              {schedulePlaying ? <PauseIcon className="h-3.5 w-3.5" /> : <PlayIcon className="h-3.5 w-3.5" />}
+            </button>
+            <select
+              value={scheduleDay}
+              onChange={(event) => setScheduleDay(event.target.value as ScheduleDay)}
+              className="h-9 min-w-0 rounded-lg border border-neutral-200 bg-white px-2 text-xs font-bold capitalize text-neutral-800 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              title="Schedule day"
+            >
+              {SCHEDULE_DAY_OPTIONS.map((day) => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+            {!scheduleMode ? (
+              <span className="ml-auto shrink-0 text-sm font-black tabular-nums">
+                {formatScheduleTime(scheduleTimeMinutes)}
+              </span>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={1439}
+              step={1}
+              value={Math.round(scheduleTimeMinutes)}
+              onChange={(event) => {
+                setScheduleTimeMinutes(Number(event.target.value));
+                setSchedulePlaying(false);
+              }}
+              disabled={!scheduleEnabled}
+              className="min-w-0 accent-neutral-900 disabled:opacity-40 dark:accent-white"
+              aria-label="GTFS schedule time"
+            />
+            <span className="w-20 text-right text-xs font-bold text-neutral-500 dark:text-zinc-400">
+              {scheduleEnabled ? `${scheduleActiveTrains.length} trains` : `${scheduleData.stats.trips} trips`}
+            </span>
+          </div>
+          {scheduleMode ? (
+            <button
+              type="button"
+              className="flex h-9 items-center justify-center gap-2 rounded-lg bg-neutral-900 px-3 text-xs font-black text-white transition disabled:cursor-not-allowed disabled:opacity-45 dark:bg-white dark:text-zinc-950"
+              onClick={downloadWeekdayScheduleVideo}
+              disabled={!canExportVideo || isExportingScheduleVideo}
+              aria-busy={isExportingScheduleVideo}
+              title={canExportVideo ? 'Download weekday simulation at 60fps' : 'Video export is not supported in this browser'}
+            >
+              {isExportingScheduleVideo ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-zinc-400 dark:border-t-zinc-950" />
+              ) : (
+                <VideoIcon className="h-3.5 w-3.5" />
+              )}
+              <span>{isExportingScheduleVideo ? 'Rendering 60fps...' : 'Download weekday 60fps'}</span>
             </button>
           ) : null}
         </div>

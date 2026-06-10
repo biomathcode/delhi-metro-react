@@ -111,6 +111,76 @@ body {
   stroke: #fafafa;
 }
 
+.simulation-map .metro-map g.label text {
+  opacity: 0.34;
+}
+
+.simulation-map .metro-map .line {
+  opacity: 0.72;
+}
+
+.simulation-map .metro-map .river {
+  opacity: 0.6;
+}
+
+.gtfs-train {
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35));
+  will-change: transform;
+}
+
+.gtfs-train svg {
+  overflow: visible;
+}
+
+.gtfs-train-trail,
+.gtfs-train circle,
+.gtfs-station-pulse {
+  vector-effect: non-scaling-stroke;
+}
+
+.gtfs-train-trail {
+  filter: blur(0.35px);
+}
+
+.gtfs-station-pulse {
+  opacity: 0.32;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gtfs-station-pulse 1.35s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.gtfs-webgl-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes gtfs-station-pulse {
+  0% {
+    opacity: 0.34;
+    transform: scale(0.7);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gtfs-station-pulse {
+    animation: none;
+    opacity: 0.18;
+  }
+
+  .train-headlight {
+    animation: none;
+  }
+}
+
 .train-headlight {
   opacity: 0;
   transform-origin: 16px 0;

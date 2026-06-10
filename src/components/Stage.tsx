@@ -20,6 +20,7 @@ const RouteSharePanel = createLazyComponent(() => import('./RouteSharePanel'));
 const JourneyTimeline = createLazyComponent(() => import('./JourneyTimeline'));
 const StationInfoDrawer = createLazyComponent(() => import('./StationInfoDrawer'));
 const SEARCH_SNAP_POINT = 0.86;
+type MapExperienceMode = 'planner' | 'simulation';
 
 type NavigatorWithVirtualKeyboard = Navigator & {
     virtualKeyboard?: {
@@ -277,6 +278,7 @@ function MetroMapStage() {
     const bottomSheetScrollRef = useRef<HTMLDivElement | null>(null);
     const isDesktop = useIsDesktop();
     const canLoadInteractiveMap = useDeferredInteractiveLoad();
+    const [mapExperienceMode, setMapExperienceMode] = useState<MapExperienceMode>('planner');
 
     const play = usePlannerUi((state) => state.play);
     const animationMode = usePlannerUi((state) => state.animationMode);
@@ -314,8 +316,16 @@ function MetroMapStage() {
     );
     const routeFromName = route ? getLocalizedStationName(route.from, route.fromName, language) : '';
     const routeToName = route ? getLocalizedStationName(route.to, route.toName, language) : '';
+    const isSimulationMode = mapExperienceMode === 'simulation';
 
     const handleFromChange = useCallback(() => setPlay(false), [setPlay]);
+    const handleExperienceModeChange = useCallback((mode: MapExperienceMode) => {
+        setMapExperienceMode(mode);
+        setPlay(false);
+        if (mode === 'simulation') {
+            setSelectedStationInfoId(null);
+        }
+    }, [setPlay, setSelectedStationInfoId]);
     const handleStationSearchFocus = useCallback(() => {
         if (isDesktop) return;
 
@@ -424,21 +434,38 @@ function MetroMapStage() {
     );
 
     return (
-        <div className="min-h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:overflow-visible lg:p-6">
-            <div className="grid min-h-[calc(100svh-1.5rem)] gap-4 sm:min-h-[calc(100svh-2rem)] lg:min-h-[calc(100svh-3rem)] lg:grid-cols-2">
-                <main className="relative min-h-[calc(100svh-1.5rem)] overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:min-h-[calc(100svh-2rem)] lg:min-h-0">
+        <div className={`${isSimulationMode ? 'min-h-svh overflow-hidden bg-[#f4f0e8] text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50' : 'min-h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:overflow-visible lg:p-6'}`}>
+            <div className={`${isSimulationMode ? 'grid min-h-svh' : 'grid min-h-[calc(100svh-1.5rem)] gap-4 sm:min-h-[calc(100svh-2rem)] lg:min-h-[calc(100svh-3rem)] lg:grid-cols-2'}`}>
+                <main className={`relative overflow-hidden bg-[#f4f0e8] dark:bg-zinc-950 ${isSimulationMode ? 'min-h-svh rounded-none border-0 shadow-none' : 'min-h-[calc(100svh-1.5rem)] rounded-lg border border-neutral-200 shadow-sm dark:border-zinc-800 sm:min-h-[calc(100svh-2rem)] lg:min-h-0'}`}>
+                    <div className="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 rounded-lg border border-white/40 bg-white/92 p-1 shadow-lg backdrop-blur dark:border-zinc-700/80 dark:bg-zinc-900/90">
+                        <button
+                            type="button"
+                            onClick={() => handleExperienceModeChange('planner')}
+                            className={`h-9 rounded-md px-3 text-xs font-bold transition ${!isSimulationMode ? 'bg-neutral-900 text-white dark:bg-white dark:text-zinc-950' : 'text-neutral-600 hover:bg-neutral-100 dark:text-zinc-300 dark:hover:bg-zinc-800'}`}
+                        >
+                            Plan journey
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleExperienceModeChange('simulation')}
+                            className={`h-9 rounded-md px-3 text-xs font-bold transition ${isSimulationMode ? 'bg-neutral-900 text-white dark:bg-white dark:text-zinc-950' : 'text-neutral-600 hover:bg-neutral-100 dark:text-zinc-300 dark:hover:bg-zinc-800'}`}
+                        >
+                            Simulation
+                        </button>
+                    </div>
                     {canLoadInteractiveMap ? (
                         <LazyBoundary fallback={<MapFallback />}>
                             <SvgComponent
-                                path={path}
-                                route={route}
-                                selectedStationId={selectedFrom}
-                                routeStationIds={routeStationIds}
+                                path={isSimulationMode ? '' : path}
+                                route={isSimulationMode ? null : route}
+                                selectedStationId={isSimulationMode ? '' : selectedFrom}
+                                routeStationIds={isSimulationMode ? [] : routeStationIds}
                                 onActiveStationChange={setActiveRouteStationId}
                                 animationMode={animationMode}
                                 cinematicZoom={cinematicZoom}
                                 routeFitRequest={routeFitRequest}
                                 routePreviewMode={routePreviewMode}
+                                scheduleMode={isSimulationMode}
                                 onStationClick={setSelectedStationInfoId}
                                 setPlay={setPlay}
                                 play={play}
@@ -449,7 +476,7 @@ function MetroMapStage() {
                     )}
                 </main>
 
-                {!isDesktop ? (
+                {!isSimulationMode && !isDesktop ? (
                     <Drawer.Root
                         activeSnapPoint={activeSnapPoint}
                         setActiveSnapPoint={setActiveSnapPoint}
@@ -488,7 +515,7 @@ function MetroMapStage() {
                             </Drawer.Content>
                         </Drawer.Portal>
                     </Drawer.Root>
-                ) : (
+                ) : !isSimulationMode ? (
                     <aside className="min-h-0 flex-col gap-5 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 sm:p-5 lg:flex lg:max-h-[calc(100vh-3rem)]">
                         <div>
                             <h1 className="mt-2 text-sm font-semibold uppercase text-red-700">{t('delhiMetro')}</h1>
@@ -501,7 +528,7 @@ function MetroMapStage() {
                             </LazyBoundary>
                         ) : null}
                     </aside>
-                )}
+                ) : null}
             </div>
         </div>
     );

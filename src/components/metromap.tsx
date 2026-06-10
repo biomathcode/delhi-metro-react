@@ -121,7 +121,7 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
                         className='line'
                     /><path
                         stroke='#54fff3'
-                        d='m 3091.7883,1814.1158 -2.9416,658.2042 332.46,3.1761'
+                        d='M1373.541 916.594L1373.541 940.594M1373.541 940.594L1373.541 964.594M1373.541 964.594L1373.541 988.594M1373.541 988.594L1373.541 1012.594M1373.541 1012.594L1373.541 1036.594M1373.541 1036.594L1373.541 1060.594M1373.541 1060.594L1373.541 1084.594M1373.541 1084.594L1373.541 1108.594M1373.541 1108.594L1373.541 1132.594M1373.541 1132.594L1373.541 1156.594M1373.541 1156.594L1373.541 1180.594M1373.541 1180.594L1373.541 1204.594M1373.541 1204.594L1373.541 1228.594M1373.541 1228.594L1373.541 1252.594M1373.541 1252.594L1373.541 1276.594M1373.541 1276.594L1373.541 1300.594M1373.541 1300.594L1373.541 1324.594M1373.541 1324.594L1373.541 1348.594M1373.541 1348.594L1373.541 1372.594M1373.541 1372.594L1373.541 1396.594M1373.541 1396.594L1373.541 1420.594'
                         className='line'
                     />
 
@@ -1240,6 +1240,237 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
                             cursor: 'pointer',
                         }}
                         transform='translate(1373.541 916.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 940.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 964.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 988.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1012.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1036.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1060.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1084.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1108.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1132.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1156.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1180.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1204.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1228.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1252.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1276.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1300.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1324.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1348.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1372.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1396.594)'
+                    />
+                    <path
+                        fill='#fff'
+                        stroke='#54fff3'
+                        strokeWidth={1.333}
+                        d='M0-4a4 4 0 1 1 0 8 4 4 0 1 1 0-8Z'
+                        className='station'
+                        style={{
+                            cursor: 'pointer',
+                        }}
+                        transform='translate(1373.541 1420.594)'
                     />
                     <path
                         fill='#fff'
@@ -4937,6 +5168,405 @@ const SvgComponent = forwardRef<SVGSVGElement, MapProps>(
                         >
                             <tspan x={1380.741} y={916.594} dominantBaseline='middle' dy='0em'>
                                 Sec-52 Noida
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={940.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={940.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 51
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={964.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={964.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 50
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={988.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={988.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 76
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1012.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1012.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 101
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1036.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1036.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 81
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1060.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1060.594} dominantBaseline='middle' dy='0em'>
+                                NSEZ
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1084.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1084.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 83
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1108.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1108.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 137
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1132.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1132.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 142
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1156.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1156.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 143
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1180.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1180.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 144
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1204.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1204.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 145
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1228.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1228.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 146
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1252.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1252.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 147
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1276.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1276.594} dominantBaseline='middle' dy='0em'>
+                                Noida Sector 148
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1300.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1300.594} dominantBaseline='middle' dy='0em'>
+                                Knowledge Park
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1324.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1324.594} dominantBaseline='middle' dy='0em'>
+                                Pari Chowk
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1348.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1348.594} dominantBaseline='middle' dy='0em'>
+                                Alpha 1
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1372.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1372.594} dominantBaseline='middle' dy='0em'>
+                                Delta 1
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1396.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1396.594} dominantBaseline='middle' dy='0em'>
+                                GNIDA Office
+                            </tspan>
+                        </text>
+                    </g>
+                    <g className='label'>
+                        <text
+                            x={1365.541}
+                            y={1420.594}
+                            className='aqua-line-label'
+                            dy={0}
+                            textAnchor='end'
+                            style={{
+                                display: 'block',
+                                textDecoration: 'none',
+                                fontSize: 6,
+                                userSelect: 'none',
+                            }}
+                        >
+                            <tspan x={1365.541} y={1420.594} dominantBaseline='middle' dy='0em'>
+                                Depot Station
                             </tspan>
                         </text>
                     </g>

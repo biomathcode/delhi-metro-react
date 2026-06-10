@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/generate-seo-pages.mjs",
     "generate:seo": "node scripts/generate-seo-pages.mjs",
+    "generate:gtfs": "node scripts/generate-gtfs-schedule.mjs",
     "update:labels": "node scripts/update-labels-metadata.mjs",
     "update:gates": "node scripts/update-station-gates.mjs",
     "lint": "eslint .",

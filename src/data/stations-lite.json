@@ -660,6 +660,132 @@
     "Longitude": 77.3728
   },
   {
+    "id": "NS51",
+    "text": "Noida Sector 51",
+    "Latitude": 28.585548,
+    "Longitude": 77.375374
+  },
+  {
+    "id": "NS50",
+    "text": "Noida Sector 50",
+    "Latitude": 28.574547,
+    "Longitude": 77.378357
+  },
+  {
+    "id": "NS76",
+    "text": "Noida Sector 76",
+    "Latitude": 28.565445,
+    "Longitude": 77.37973
+  },
+  {
+    "id": "NS101",
+    "text": "Noida Sector 101",
+    "Latitude": 28.556065,
+    "Longitude": 77.385056
+  },
+  {
+    "id": "NS81",
+    "text": "Noida Sector 81",
+    "Latitude": 28.549259,
+    "Longitude": 77.390099
+  },
+  {
+    "id": "NSEZ",
+    "text": "NSEZ",
+    "Latitude": 28.532248,
+    "Longitude": 77.394951
+  },
+  {
+    "id": "NS83",
+    "text": "Noida Sector 83",
+    "Latitude": 28.522284,
+    "Longitude": 77.396477
+  },
+  {
+    "id": "NS137",
+    "text": "Noida Sector 137",
+    "Latitude": 28.510817,
+    "Longitude": 77.403625
+  },
+  {
+    "id": "NS142",
+    "text": "Noida Sector 142",
+    "Latitude": 28.498999,
+    "Longitude": 77.412567
+  },
+  {
+    "id": "NS143",
+    "text": "Noida Sector 143",
+    "Latitude": 28.494246,
+    "Longitude": 77.422318
+  },
+  {
+    "id": "NS144",
+    "text": "Noida Sector 144",
+    "Latitude": 28.486376,
+    "Longitude": 77.432968
+  },
+  {
+    "id": "NS145",
+    "text": "Noida Sector 145",
+    "Latitude": 28.47913,
+    "Longitude": 77.442307
+  },
+  {
+    "id": "NS146",
+    "text": "Noida Sector 146",
+    "Latitude": 28.468822,
+    "Longitude": 77.455101
+  },
+  {
+    "id": "NS147",
+    "text": "Noida Sector 147",
+    "Latitude": 28.4594,
+    "Longitude": 77.465965
+  },
+  {
+    "id": "NS148",
+    "text": "Noida Sector 148",
+    "Latitude": 28.448021,
+    "Longitude": 77.476692
+  },
+  {
+    "id": "KNPK",
+    "text": "Knowledge Park",
+    "Latitude": 28.456865,
+    "Longitude": 77.500298
+  },
+  {
+    "id": "PCK",
+    "text": "Pari Chowk",
+    "Latitude": 28.463331,
+    "Longitude": 77.508308
+  },
+  {
+    "id": "ALP1",
+    "text": "Alpha 1",
+    "Latitude": 28.470879,
+    "Longitude": 77.512718
+  },
+  {
+    "id": "DLT1",
+    "text": "Delta 1",
+    "Latitude": 28.478374,
+    "Longitude": 77.525581
+  },
+  {
+    "id": "GNIDA",
+    "text": "GNIDA Office",
+    "Latitude": 28.484531,
+    "Longitude": 77.536621
+  },
+  {
+    "id": "DPT",
+    "text": "Depot Station",
+    "Latitude": 28.488651,
+    "Longitude": 77.544075
+  },
+  {
     "id": "SSON",
     "text": "Sec-61 Noida",
     "Latitude": 28.5976,
