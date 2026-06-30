@@ -1,0 +1,13 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { stationPage, stationSlug, stations } from '../../lib/seo';
+
+export const getStaticPaths = () =>
+  stations.map((station) => ({
+    params: { slug: stationSlug(station.id) },
+    props: { page: stationPage(station) },
+  }));
+
+const { page } = Astro.props;
+---
+<AppLayout {...page} />

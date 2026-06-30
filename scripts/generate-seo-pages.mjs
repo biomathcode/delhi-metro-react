@@ -9,6 +9,8 @@ const indexPath = path.join(distDir, 'index.html');
 const baseUrl = (process.env.SITE_URL || 'https://metro.coolhead.in').replace(/\/$/, '');
 const showcaseImagePath = '/images/showcase-1200x630.png';
 const sitemapUrlLimit = 10000;
+const routeSeoMode = (process.env.SEO_ROUTE_MODE || 'focused').toLowerCase();
+const routeSeoLimit = Number.parseInt(process.env.SEO_ROUTE_LIMIT || '', 10);
 const toLastmodDate = (date) => date.toISOString().slice(0, 10);
 const latestMtime = async (paths) => {
   const stats = await Promise.all(paths.map((filePath) => stat(filePath)));
@@ -107,12 +109,33 @@ const featuredRoutePairs = [
   ['ITO', 'KG'],
   ['BOTA', 'APOT'],
 ].filter(([from, to]) => stationById.has(from) && stationById.has(to));
+const featuredStationIdSet = new Set(featuredStationIds);
+const featuredRoutePairSet = new Set(
+  featuredRoutePairs.flatMap(([from, to]) => [`${from}>${to}`, `${to}>${from}`])
+);
 
 const adjacency = new Map(stations.map((station) => [station.id, []]));
 for (const edge of edges) {
   adjacency.get(edge.from)?.push(edge.to);
   adjacency.get(edge.to)?.push(edge.from);
 }
+
+const isDirectNeighborRoute = (from, to) =>
+  adjacency.get(from)?.includes(to) || false;
+
+const shouldGenerateRouteSeoPage = (route) => {
+  if (routeSeoMode === 'all') return true;
+  if (routeSeoMode === 'none') return false;
+
+  const routeKey = `${route.from}>${route.to}`;
+
+  return (
+    featuredRoutePairSet.has(routeKey) ||
+    featuredStationIdSet.has(route.from) ||
+    featuredStationIdSet.has(route.to) ||
+    isDirectNeighborRoute(route.from, route.to)
+  );
+};
 
 const buildShortestPathTree = (from) => {
   const queue = [from];
@@ -200,19 +223,19 @@ const renderHtml = ({ title, description, keywords, canonicalPath, body, schema,
   let html = template;
 
   html = setTag(html, /<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`);
-  html = setTag(html, /<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`);
-  html = setTag(html, /<meta\s+name="description"[\s\S]*?\/>/, `<meta name="description" content="${escapeHtml(description)}" />`);
-  html = setTag(html, /<meta\s+name="keywords"[\s\S]*?\/>/, `<meta name="keywords" content="${escapeHtml(keywords)}" />`);
-  html = setTag(html, /<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`);
-  html = setTag(html, /<meta property="og:title" content="[^"]*" \/>/, `<meta property="og:title" content="${escapeHtml(title)}" />`);
-  html = setTag(html, /<meta\s+property="og:description"[\s\S]*?\/>/, `<meta property="og:description" content="${escapeHtml(description)}" />`);
-  html = setTag(html, /<meta name="twitter:title" content="[^"]*" \/>/, `<meta name="twitter:title" content="${escapeHtml(title)}" />`);
-  html = setTag(html, /<meta\s+name="twitter:description"[\s\S]*?\/>/, `<meta name="twitter:description" content="${escapeHtml(description)}" />`);
+  html = setTag(html, /<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`);
+  html = setTag(html, /<meta\s+name="description"[\s\S]*?\/?>/, `<meta name="description" content="${escapeHtml(description)}" />`);
+  html = setTag(html, /<meta\s+name="keywords"[\s\S]*?\/?>/, `<meta name="keywords" content="${escapeHtml(keywords)}" />`);
+  html = setTag(html, /<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />`);
+  html = setTag(html, /<meta property="og:title" content="[^"]*"\s*\/?>/, `<meta property="og:title" content="${escapeHtml(title)}" />`);
+  html = setTag(html, /<meta\s+property="og:description"[\s\S]*?\/?>/, `<meta property="og:description" content="${escapeHtml(description)}" />`);
+  html = setTag(html, /<meta name="twitter:title" content="[^"]*"\s*\/?>/, `<meta name="twitter:title" content="${escapeHtml(title)}" />`);
+  html = setTag(html, /<meta\s+name="twitter:description"[\s\S]*?\/?>/, `<meta name="twitter:description" content="${escapeHtml(description)}" />`);
   html = html.replace(
     '</head>',
     `    ${hydrationData ? `<script>window.__DELHI_METRO_ROUTE__=${JSON.stringify(hydrationData)};</script>\n    ` : ''}<script type="application/ld+json">${JSON.stringify(schema)}</script>\n  </head>`
   );
-  html = html.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root">${body}</div>`);
+  html = html.replace(/<div><main class="seo-prerender">[\s\S]*?<\/main><\/div>/, `<div>${body}</div>`);
 
   return html;
 };
@@ -600,12 +623,15 @@ for (const origin of stations) {
     if (route) routes.push(route);
   }
 }
+const seoRoutes = routes
+  .filter(shouldGenerateRouteSeoPage)
+  .slice(0, Number.isFinite(routeSeoLimit) && routeSeoLimit > 0 ? routeSeoLimit : undefined);
 
 const pages = [
   routeIndexPage(),
   ...legalPages.map(legalPage),
   ...stations.map(stationPage),
-  ...routes.map(routePage),
+  ...seoRoutes.map(routePage),
 ];
 
 for (const page of pages) {
@@ -628,7 +654,7 @@ const stationSitemapUrls = stations.map((station) => ({
     changefreq: 'monthly',
     lastmod: contentLastmod,
   }));
-const routeSitemapUrls = routes.map((route) => ({
+const routeSitemapUrls = seoRoutes.map((route) => ({
     loc: `${baseUrl}${routePathname(route.from, route.to)}`,
     priority: '0.7',
     changefreq: 'monthly',
@@ -678,4 +704,4 @@ Allow: /
 Sitemap: ${baseUrl}/sitemap.xml
 `);
 
-console.log(`Generated ${stations.length} station pages, ${routes.length} route pages, ${sitemapFiles.length} sitemap files, and sitemap.xml index.`);
+console.log(`Generated ${stations.length} station pages, ${seoRoutes.length} route pages (${routes.length} possible, mode: ${routeSeoMode}), ${sitemapFiles.length} sitemap files, and sitemap.xml index.`);

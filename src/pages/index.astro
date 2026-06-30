@@ -1,0 +1,7 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { homePage } from '../lib/seo';
+
+const page = homePage();
+---
+<AppLayout {...page} />

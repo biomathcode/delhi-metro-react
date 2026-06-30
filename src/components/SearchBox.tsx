@@ -458,13 +458,19 @@ export function SearchBox({
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button className="inline-flex h-11 items-center gap-2 rounded-full bg-[#009b50] px-4 text-sm font-semibold text-white transition hover:bg-[#007f42]">
+        <button
+          type="submit"
+          aria-label={t("planJourney")}
+          title={t("planJourney")}
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-[#009b50] px-4 text-sm font-semibold text-white transition hover:bg-[#007f42]"
+        >
           <PlayIcon
+            aria-hidden="true"
             className="h-4 w-4"
             stroke="currentColor"
             strokeWidth={1.1}
           />
-          {/* {t("planJourney")} */}
+          <span className="sr-only">{t("planJourney")}</span>
         </button>
         <button
           type="button"
@@ -550,10 +556,13 @@ export function SearchBox({
         </button>
         <button
           type="button"
+          aria-label={t("resetSearch")}
+          title={t("resetSearch")}
           onClick={resetSearch}
           className="inline-flex h-11 items-center rounded-full border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800 sm:h-12"
         >
-          <ResetIcon />
+          <ResetIcon aria-hidden="true" />
+          <span className="sr-only">{t("resetSearch")}</span>
         </button>
         <button
           type="button"

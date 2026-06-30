@@ -1,0 +1,7 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { routeIndexPage } from '../../lib/seo';
+
+const page = routeIndexPage();
+---
+<AppLayout {...page} />

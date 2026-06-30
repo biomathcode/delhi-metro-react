@@ -4,21 +4,26 @@
   "version": "0.0.0",
   "type": "module",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/generate-seo-pages.mjs",
+    "dev": "astro dev",
+    "build": "astro check && astro build && node scripts/generate-seo-pages.mjs",
     "generate:seo": "node scripts/generate-seo-pages.mjs",
     "test:svg-path-utils": "node scripts/test-svg-path-utils.mjs",
     "update:labels": "node scripts/update-labels-metadata.mjs",
     "update:gates": "node scripts/update-station-gates.mjs",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "astro preview",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
+    "@astrojs/react": "^6.0.0",
     "@gsap/react": "^2.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@tailwindcss/vite": "^4.1.17",
+    "astro": "^7.0.3",
     "gsap": "^3.13.0",
     "html-to-image": "^1.11.13",
     "mediabunny": "^1.45.4",
@@ -32,6 +37,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.9",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

@@ -424,9 +424,9 @@ function MetroMapStage() {
     );
 
     return (
-        <div className="min-h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:overflow-visible lg:p-6">
-            <div className="grid min-h-[calc(100svh-1.5rem)] gap-4 sm:min-h-[calc(100svh-2rem)] lg:min-h-[calc(100svh-3rem)] lg:grid-cols-2">
-                <main className="relative min-h-[calc(100svh-1.5rem)] h-screen overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 sm:min-h-[calc(100svh-2rem)] lg:min-h-0">
+        <div className="h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:p-6">
+            <div className="grid h-full min-h-0 gap-4 lg:grid-cols-2">
+                <main className="relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
                     {canLoadInteractiveMap ? (
                         <LazyBoundary fallback={<MapFallback />}>
                             <SvgComponent

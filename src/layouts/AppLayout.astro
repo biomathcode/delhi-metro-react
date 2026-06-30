@@ -1,0 +1,113 @@
+---
+import App from '../App';
+import '../index.css';
+
+interface Props {
+  title: string;
+  description: string;
+  keywords: string;
+  canonicalPath: string;
+  body: string;
+  schema: unknown;
+  hydrationData?: { from?: string; to?: string };
+}
+
+const {
+  title,
+  description,
+  keywords,
+  canonicalPath,
+  body,
+  schema,
+  hydrationData,
+} = Astro.props;
+const baseUrl = (import.meta.env.SITE || 'https://metro.coolhead.in').replace(/\/$/, '');
+const canonicalUrl = `${baseUrl}${canonicalPath}`;
+const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <base href="/" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="alternate" hreflang="en" href={`${baseUrl}/`} />
+    <link rel="alternate" hreflang="hi" href={`${baseUrl}/?lang=hi`} />
+    <link rel="alternate" hreflang="mr" href={`${baseUrl}/?lang=mr`} />
+    <link rel="alternate" hreflang="bn" href={`${baseUrl}/?lang=bn`} />
+    <link rel="alternate" hreflang="x-default" href={`${baseUrl}/`} />
+    <link rel="preconnect" href="https://www.clarity.ms" crossorigin />
+    <link rel="dns-prefetch" href="https://www.clarity.ms" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Delhi Metro" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="scrolllaunch-verify" content="36123bd46ae1cf8ae73322369ad44c06" />
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="Delhi Metro Route Planner" />
+    <meta name="theme-color" content="#f4f0e8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="Delhi Metro Route Planner" />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:alt" content="Delhi Metro route planner with interactive map and journey details" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:locale:alternate" content="hi_IN" />
+    <meta property="og:locale:alternate" content="mr_IN" />
+    <meta property="og:locale:alternate" content="bn_IN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageUrl} />
+    <meta name="twitter:image:alt" content="Delhi Metro route planner with interactive map and journey details" />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <style is:inline>
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #f4f0e8;
+      }
+
+      .js .seo-prerender {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        width: 100vw;
+        height: 100svh;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        contain: layout size style paint;
+      }
+
+      .js .seo-prerender img {
+        display: block;
+        width: min(100vw, 1200px);
+        height: auto;
+        aspect-ratio: 1200 / 630;
+      }
+    </style>
+    {hydrationData ? <script is:inline set:html={`window.__DELHI_METRO_ROUTE__=${JSON.stringify(hydrationData)};`} /> : null}
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+    <script is:inline>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
+    <title>{title}</title>
+  </head>
+  <body>
+    <div set:html={body} />
+    <App client:only="react" />
+  </body>
+</html>
