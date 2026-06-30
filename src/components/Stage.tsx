@@ -45,78 +45,64 @@ function useIsDesktop() {
 
 function useDeferredInteractiveLoad() {
     const [isReady, setIsReady] = useState(false);
+    const markReady = useCallback(() => setIsReady(true), []);
 
     useEffect(() => {
+        if (isReady) return;
+
         let timeoutId = 0;
-        let frameId = 0;
         let idleId = 0;
 
-        const markReady = () => setIsReady(true);
-        frameId = window.requestAnimationFrame(() => {
+        const scheduleIdleLoad = () => {
             if (typeof window.requestIdleCallback === 'function') {
-                idleId = window.requestIdleCallback(markReady, { timeout: 1200 });
+                idleId = window.requestIdleCallback(markReady, { timeout: 5000 });
             } else {
-                timeoutId = globalThis.setTimeout(markReady, 350);
+                markReady();
             }
-        });
+        };
+        const autoLoadDelay = window.matchMedia('(min-width: 1024px)').matches ? 8000 : 20000;
+        timeoutId = window.setTimeout(scheduleIdleLoad, autoLoadDelay);
+
+        window.addEventListener('pointerdown', markReady, { once: true, passive: true });
+        window.addEventListener('keydown', markReady, { once: true });
+        window.addEventListener('wheel', markReady, { once: true, passive: true });
 
         return () => {
-            window.cancelAnimationFrame(frameId);
             if (idleId) window.cancelIdleCallback(idleId);
             if (timeoutId) window.clearTimeout(timeoutId);
+            window.removeEventListener('pointerdown', markReady);
+            window.removeEventListener('keydown', markReady);
+            window.removeEventListener('wheel', markReady);
         };
-    }, []);
+    }, [isReady, markReady]);
 
-    return isReady;
+    return [isReady, markReady] as const;
 }
 
-function MapFallback() {
+function MapFallback({ onActivate }: { onActivate: () => void }) {
     return (
-        <div className="relative h-full min-h-[inherit] overflow-hidden bg-[#f4f0e8] p-4 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-6">
-            <div className="absolute inset-0" aria-hidden="true">
-                <div className="absolute left-[6%] top-[20%] h-1 w-[88%] rotate-[7deg] rounded-full bg-red-500/65" />
-                <div className="absolute left-[18%] top-[10%] h-1 w-[68%] rotate-[52deg] rounded-full bg-[#009b50]/70" />
-                <div className="absolute left-[8%] top-[64%] h-1 w-[84%] -rotate-[13deg] rounded-full bg-[#2855a4]/70" />
-                <div className="absolute left-[58%] top-[6%] h-[88%] w-1 rounded-full bg-[#f7c948]/80" />
-                <div className="absolute left-[15%] top-[28%] h-3 w-3 rounded-full border-2 border-white bg-red-500 shadow-sm dark:border-zinc-950" />
-                <div className="absolute left-[45%] top-[40%] h-4 w-4 rounded-full border-2 border-white bg-[#009b50] shadow-sm dark:border-zinc-950" />
-                <div className="absolute left-[68%] top-[55%] h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2855a4] shadow-sm dark:border-zinc-950" />
-                <div className="absolute left-[82%] top-[34%] h-3 w-3 rounded-full border-2 border-white bg-[#f7c948] shadow-sm dark:border-zinc-950" />
+        <button
+            type="button"
+            onClick={onActivate}
+            className="relative block h-full min-h-[inherit] w-full overflow-hidden bg-[#f4f0e8] text-left text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50"
+            aria-label="Open interactive metro map"
+        >
+            <img
+                src="/images/showcase-1200x630.png"
+                alt=""
+                aria-hidden="true"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                className="absolute inset-0 h-full w-full object-cover object-left-top"
+            />
+            <div className="absolute inset-0 bg-white/10 dark:bg-zinc-950/20" aria-hidden="true" />
+            <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-6">
+                <span className="w-fit rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-neutral-700 shadow-sm dark:bg-zinc-900/95 dark:text-zinc-200">
+                    Delhi Metro Route Planner
+                </span>
             </div>
-            <div className="relative z-10 flex h-full flex-col justify-between gap-4">
-                <div className="flex items-center justify-between gap-3">
-                    <span className="rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-neutral-700 shadow-sm dark:bg-zinc-900/95 dark:text-zinc-200">
-                        Delhi Metro
-                    </span>
-                    <span className="rounded-full bg-[#009b50] px-3 py-2 text-xs font-semibold text-white shadow-sm">
-                        Route Planner
-                    </span>
-                </div>
-                <div className="grid max-w-xl gap-4 rounded-lg border border-white/70 bg-white/95 p-4 shadow-sm backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95 sm:p-5">
-                    <div>
-                        <p className="text-xs font-semibold uppercase text-[#009b50]">Preparing map</p>
-                        <h1 className="mt-1 text-2xl font-semibold text-neutral-950 dark:text-white sm:text-3xl">
-                            Plan your metro journey
-                        </h1>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
-                            <p className="text-xs font-semibold text-neutral-500 dark:text-zinc-400">From</p>
-                            <div className="mt-2 h-3 w-32 rounded-full bg-neutral-200 dark:bg-zinc-800" />
-                        </div>
-                        <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
-                            <p className="text-xs font-semibold text-neutral-500 dark:text-zinc-400">To</p>
-                            <div className="mt-2 h-3 w-28 rounded-full bg-neutral-200 dark:bg-zinc-800" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-sm font-semibold">
-                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Fare</div>
-                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Stops</div>
-                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Time</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </button>
     );
 }
 
@@ -315,7 +301,7 @@ function MetroMapStage() {
     const { language, t } = useI18n();
     const bottomSheetScrollRef = useRef<HTMLDivElement | null>(null);
     const isDesktop = useIsDesktop();
-    const canLoadInteractiveMap = useDeferredInteractiveLoad();
+    const [canLoadInteractiveMap, requestInteractiveMap] = useDeferredInteractiveLoad();
 
     const play = usePlannerUi((state) => state.play);
     const animationMode = usePlannerUi((state) => state.animationMode);
@@ -468,7 +454,7 @@ function MetroMapStage() {
             <div className="grid h-full min-h-0 gap-4 lg:grid-cols-2">
                 <main className={`relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 ${isShowingMapFallback ? 'lg:col-span-2' : ''}`}>
                     {canLoadInteractiveMap ? (
-                        <LazyBoundary fallback={<MapFallback />}>
+                        <LazyBoundary fallback={<MapFallback onActivate={requestInteractiveMap} />}>
                             <SvgComponent
                                 path={path}
                                 route={route}
@@ -485,7 +471,7 @@ function MetroMapStage() {
                             />
                         </LazyBoundary>
                     ) : (
-                        <MapFallback />
+                        <MapFallback onActivate={requestInteractiveMap} />
                     )}
                 </main>
 

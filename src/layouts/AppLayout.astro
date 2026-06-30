@@ -34,13 +34,12 @@ const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="canonical" href={canonicalUrl} />
+    <link rel="preconnect" href="https://delhi-metro-react.pages.dev" />
     <link rel="alternate" hreflang="en" href={`${baseUrl}/`} />
     <link rel="alternate" hreflang="hi" href={`${baseUrl}/?lang=hi`} />
     <link rel="alternate" hreflang="mr" href={`${baseUrl}/?lang=mr`} />
     <link rel="alternate" hreflang="bn" href={`${baseUrl}/?lang=bn`} />
     <link rel="alternate" hreflang="x-default" href={`${baseUrl}/`} />
-    <link rel="preconnect" href="https://www.clarity.ms" crossorigin />
-    <link rel="dns-prefetch" href="https://www.clarity.ms" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -89,10 +88,7 @@ const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
       }
 
       .js .seo-prerender img {
-        display: block;
-        width: min(100vw, 1200px);
-        height: auto;
-        aspect-ratio: 1200 / 630;
+        display: none;
       }
     </style>
     {hydrationData ? <script is:inline set:html={`window.__DELHI_METRO_ROUTE__=${JSON.stringify(hydrationData)};`} /> : null}
