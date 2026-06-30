@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -244,6 +244,52 @@ const writePage = async (pathname, html) => {
   const outputDir = path.join(distDir, pathname);
   await mkdir(outputDir, { recursive: true });
   await writeFile(path.join(outputDir, 'index.html'), html);
+};
+
+const deferRenderBlockingStylesheets = (html) =>
+  html.replace(
+    /<link rel="stylesheet" href="([^"]+\.css)"\s*\/?>/g,
+    (_, href) => `<link rel="preload" href="${href}" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="${href}"></noscript>`
+  );
+
+const minifyInlineStyles = (html) =>
+  html.replace(/<style>([\s\S]*?)<\/style>/g, (_, css) => {
+    const minifiedCss = css
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([{}:;,>])\s*/g, '$1')
+      .replace(/;}/g, '}')
+      .trim();
+
+    return `<style>${minifiedCss}</style>`;
+  });
+
+const optimizeHtml = (html) => deferRenderBlockingStylesheets(minifyInlineStyles(html));
+
+const htmlFilePaths = async (directory) => {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const entryPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) return htmlFilePaths(entryPath);
+    if (entry.isFile() && entry.name.endsWith('.html')) return [entryPath];
+    return [];
+  }));
+
+  return files.flat();
+};
+
+const optimizeHtmlDelivery = async () => {
+  const htmlFiles = await htmlFilePaths(distDir);
+
+  await Promise.all(htmlFiles.map(async (filePath) => {
+    const html = await readFile(filePath, 'utf8');
+    const optimizedHtml = optimizeHtml(html);
+
+    if (optimizedHtml !== html) {
+      await writeFile(filePath, optimizedHtml);
+    }
+  }));
 };
 
 const hasItems = (items) => Array.isArray(items) && items.length > 0;
@@ -703,5 +749,7 @@ Allow: /
 
 Sitemap: ${baseUrl}/sitemap.xml
 `);
+
+await optimizeHtmlDelivery();
 
 console.log(`Generated ${stations.length} station pages, ${seoRoutes.length} route pages (${routes.length} possible, mode: ${routeSeoMode}), ${sitemapFiles.length} sitemap files, and sitemap.xml index.`);

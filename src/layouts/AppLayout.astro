@@ -73,6 +73,138 @@ const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
         margin: 0;
         min-height: 100%;
         background: #f4f0e8;
+        font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      .app-stage-shell {
+        height: 100svh;
+        overflow: hidden;
+        background: #f4f0e8;
+        color: #0a0a0a;
+        padding: 0.5rem;
+      }
+
+      .app-stage-grid {
+        display: grid;
+        height: 100%;
+        min-height: 0;
+        gap: 1rem;
+      }
+
+      .app-map-frame {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid #e5e5e5;
+        border-radius: 0.5rem;
+        background: #f4f0e8;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+      }
+
+      .app-map-fallback {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: inherit;
+        overflow: hidden;
+        border: 0;
+        background: #f4f0e8;
+        padding: 0;
+        color: #0a0a0a;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .app-map-fallback-picture,
+      .app-map-fallback-overlay {
+        position: absolute;
+        inset: 0;
+      }
+
+      .app-map-fallback-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: left top;
+      }
+
+      .app-map-fallback-overlay {
+        background: rgb(255 255 255 / 0.1);
+      }
+
+      .app-map-fallback-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 1rem;
+      }
+
+      .app-map-fallback-badge {
+        width: fit-content;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.95);
+        padding: 0.5rem 0.75rem;
+        color: #404040;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1rem;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+      }
+
+      @media (min-width: 640px) {
+        .app-stage-shell {
+          padding: 1rem;
+        }
+
+        .app-map-fallback-content {
+          padding: 1.5rem;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .app-stage-shell {
+          padding: 1.5rem;
+        }
+
+        .app-stage-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .app-map-frame-fallback {
+          grid-column: span 2 / span 2;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .app-stage-shell,
+        .app-map-frame,
+        .app-map-fallback {
+          background: #09090b;
+          color: #fafafa;
+        }
+
+        .app-map-frame {
+          border-color: #27272a;
+        }
+
+        .app-map-fallback-overlay {
+          background: rgb(9 9 11 / 0.2);
+        }
+
+        .app-map-fallback-badge {
+          background: rgb(24 24 27 / 0.95);
+          color: #e4e4e7;
+        }
       }
 
       .js .seo-prerender {

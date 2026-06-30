@@ -84,21 +84,24 @@ function MapFallback({ onActivate }: { onActivate: () => void }) {
         <button
             type="button"
             onClick={onActivate}
-            className="relative block h-full min-h-[inherit] w-full overflow-hidden bg-[#f4f0e8] text-left text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50"
+            className="app-map-fallback relative block h-full min-h-[inherit] w-full overflow-hidden bg-[#f4f0e8] text-left text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50"
             aria-label="Open interactive metro map"
         >
-            <img
-                src="/images/showcase-1200x630.png"
-                alt=""
-                aria-hidden="true"
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-                className="absolute inset-0 h-full w-full object-cover object-left-top"
-            />
-            <div className="absolute inset-0 bg-white/10 dark:bg-zinc-950/20" aria-hidden="true" />
-            <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-6">
-                <span className="w-fit rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-neutral-700 shadow-sm dark:bg-zinc-900/95 dark:text-zinc-200">
+            <picture className="app-map-fallback-picture absolute inset-0" aria-hidden="true">
+                <source srcSet="/images/showcase-1200x630.avif" type="image/avif" />
+                <source srcSet="/images/showcase-1200x630.webp" type="image/webp" />
+                <img
+                    src="/images/showcase-1200x630.png"
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    className="app-map-fallback-image h-full w-full object-cover object-left-top"
+                />
+            </picture>
+            <div className="app-map-fallback-overlay absolute inset-0 bg-white/10 dark:bg-zinc-950/20" aria-hidden="true" />
+            <div className="app-map-fallback-content relative z-10 flex h-full flex-col justify-between p-4 sm:p-6">
+                <span className="app-map-fallback-badge w-fit rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-neutral-700 shadow-sm dark:bg-zinc-900/95 dark:text-zinc-200">
                     Delhi Metro Route Planner
                 </span>
             </div>
@@ -450,9 +453,9 @@ function MetroMapStage() {
     );
 
     return (
-        <div className="h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:p-6">
-            <div className="grid h-full min-h-0 gap-4 lg:grid-cols-2">
-                <main className={`relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 ${isShowingMapFallback ? 'lg:col-span-2' : ''}`}>
+        <div className="app-stage-shell h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:p-6">
+            <div className="app-stage-grid grid h-full min-h-0 gap-4 lg:grid-cols-2">
+                <main className={`app-map-frame relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 ${isShowingMapFallback ? 'app-map-frame-fallback lg:col-span-2' : ''}`}>
                     {canLoadInteractiveMap ? (
                         <LazyBoundary fallback={<MapFallback onActivate={requestInteractiveMap} />}>
                             <SvgComponent
