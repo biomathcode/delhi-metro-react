@@ -277,7 +277,7 @@ export const homePage = (): SeoPage => {
     body: `
       <main class="seo-prerender">
         <h1>Delhi Metro Route Planner</h1>
-        <img src="${showcaseImagePath}" alt="Delhi Metro route planner with interactive map and journey details" width="1200" height="630" loading="eager" />
+        <img src="${showcaseImagePath}" alt="Delhi Metro route planner with interactive map and journey details" width="1200" height="630" loading="lazy" decoding="async" fetchpriority="low" />
         <p>Delhi Metro Route Planner helps commuters find practical metro routes across Delhi NCR. Search by source and destination station to check the recommended route, estimated fare, travel time, stop count, interchange stations, and line-color guidance.</p>
         <p>Popular route examples include ${featuredRoutePairs.map(([from, to]) => `<a href="${routePathname(from, to)}">${escapeHtml(stationName(from))} to ${escapeHtml(stationName(to))}</a>`).join(', ')}.</p>
         <p>Browse the <a href="/routes/">Delhi Metro routes directory</a> or station pages such as ${featuredStationIds.slice(0, 5).map((stationId) => `<a href="${stationPathname(stationId)}">${escapeHtml(stationName(stationId))}</a>`).join(', ')}.</p>

@@ -100,7 +100,13 @@ const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
     <script is:inline>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          const registerServiceWorker = () => navigator.serviceWorker.register('/sw.js');
+
+          if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(registerServiceWorker, { timeout: 3000 });
+          } else {
+            window.setTimeout(registerServiceWorker, 1500);
+          }
         });
       }
     </script>
@@ -108,6 +114,6 @@ const imageUrl = `${baseUrl}/images/showcase-1200x630.png`;
   </head>
   <body>
     <div set:html={body} />
-    <App client:only="react" />
+    <App client:idle={{ timeout: 1800 }} />
   </body>
 </html>

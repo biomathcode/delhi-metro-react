@@ -28,10 +28,7 @@ type NavigatorWithVirtualKeyboard = Navigator & {
 };
 
 function useIsDesktop() {
-    const [isDesktop, setIsDesktop] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return window.matchMedia('(min-width: 1024px)').matches;
-    });
+    const [isDesktop, setIsDesktop] = useState(false);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -75,8 +72,50 @@ function useDeferredInteractiveLoad() {
 
 function MapFallback() {
     return (
-        <div className="flex h-full min-h-[inherit] items-center justify-center bg-[#f4f0e8] text-sm font-semibold text-neutral-500 dark:bg-zinc-950 dark:text-zinc-400">
-            Loading metro map...
+        <div className="relative h-full min-h-[inherit] overflow-hidden bg-[#f4f0e8] p-4 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-6">
+            <div className="absolute inset-0" aria-hidden="true">
+                <div className="absolute left-[6%] top-[20%] h-1 w-[88%] rotate-[7deg] rounded-full bg-red-500/65" />
+                <div className="absolute left-[18%] top-[10%] h-1 w-[68%] rotate-[52deg] rounded-full bg-[#009b50]/70" />
+                <div className="absolute left-[8%] top-[64%] h-1 w-[84%] -rotate-[13deg] rounded-full bg-[#2855a4]/70" />
+                <div className="absolute left-[58%] top-[6%] h-[88%] w-1 rounded-full bg-[#f7c948]/80" />
+                <div className="absolute left-[15%] top-[28%] h-3 w-3 rounded-full border-2 border-white bg-red-500 shadow-sm dark:border-zinc-950" />
+                <div className="absolute left-[45%] top-[40%] h-4 w-4 rounded-full border-2 border-white bg-[#009b50] shadow-sm dark:border-zinc-950" />
+                <div className="absolute left-[68%] top-[55%] h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2855a4] shadow-sm dark:border-zinc-950" />
+                <div className="absolute left-[82%] top-[34%] h-3 w-3 rounded-full border-2 border-white bg-[#f7c948] shadow-sm dark:border-zinc-950" />
+            </div>
+            <div className="relative z-10 flex h-full flex-col justify-between gap-4">
+                <div className="flex items-center justify-between gap-3">
+                    <span className="rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-neutral-700 shadow-sm dark:bg-zinc-900/95 dark:text-zinc-200">
+                        Delhi Metro
+                    </span>
+                    <span className="rounded-full bg-[#009b50] px-3 py-2 text-xs font-semibold text-white shadow-sm">
+                        Route Planner
+                    </span>
+                </div>
+                <div className="grid max-w-xl gap-4 rounded-lg border border-white/70 bg-white/95 p-4 shadow-sm backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95 sm:p-5">
+                    <div>
+                        <p className="text-xs font-semibold uppercase text-[#009b50]">Preparing map</p>
+                        <h1 className="mt-1 text-2xl font-semibold text-neutral-950 dark:text-white sm:text-3xl">
+                            Plan your metro journey
+                        </h1>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
+                            <p className="text-xs font-semibold text-neutral-500 dark:text-zinc-400">From</p>
+                            <div className="mt-2 h-3 w-32 rounded-full bg-neutral-200 dark:bg-zinc-800" />
+                        </div>
+                        <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
+                            <p className="text-xs font-semibold text-neutral-500 dark:text-zinc-400">To</p>
+                            <div className="mt-2 h-3 w-28 rounded-full bg-neutral-200 dark:bg-zinc-800" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-sm font-semibold">
+                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Fare</div>
+                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Stops</div>
+                        <div className="rounded-lg bg-neutral-100 p-3 dark:bg-zinc-800">Time</div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -312,6 +351,7 @@ function MetroMapStage() {
         () => sortRoutePlans(routeOptions || [], routeSortMode),
         [routeOptions, routeSortMode]
     );
+    const isShowingMapFallback = !canLoadInteractiveMap;
     const routeFromName = route ? getLocalizedStationName(route.from, route.fromName, language) : '';
     const routeToName = route ? getLocalizedStationName(route.to, route.toName, language) : '';
 
@@ -426,7 +466,7 @@ function MetroMapStage() {
     return (
         <div className="h-svh overflow-hidden bg-[#f4f0e8] p-2 text-neutral-950 dark:bg-zinc-950 dark:text-zinc-50 sm:p-4 lg:p-6">
             <div className="grid h-full min-h-0 gap-4 lg:grid-cols-2">
-                <main className="relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <main className={`relative min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-[#f4f0e8] shadow-sm dark:border-zinc-800 dark:bg-zinc-950 ${isShowingMapFallback ? 'lg:col-span-2' : ''}`}>
                     {canLoadInteractiveMap ? (
                         <LazyBoundary fallback={<MapFallback />}>
                             <SvgComponent
